@@ -62,6 +62,16 @@ Untuk kelancaran pengerjaan selama 4 minggu, berikut adalah rincian tugas dan ja
 * **Minggu 3:** Implementasi logika *Keyword Gap Analysis* (ekstraksi kata kunci penting dari JD dan membandingkannya dengan isi CV untuk mencari kata kunci yang tidak ditemukan).
 * **Minggu 4:** Optimasi performa model AI, pengujian akurasi pencocokan, dan membantu integrasi akhir ke UI.
 
+**📂 File yang Dikerjakan:**
+
+| File | Tanggung Jawab |
+|---|---|
+| `model/embedder.py` | Load model Sentence-Transformer & fungsi `get_embedding()` untuk mengubah teks menjadi vektor |
+| `model/similarity.py` | Fungsi `calculate_similarity()` (Cosine Similarity) & `rank_candidates()` untuk menghasilkan ranking |
+| `model/keyword_gap.py` | Fungsi `extract_keywords()` dari JD & `analyze_keyword_gap()` untuk menemukan skill yang kurang di CV |
+
+---
+
 ### 🧑‍💻 Anggota 2: Frontend & Streamlit Developer
 *Fokus Utama: Desain UI, Layout Dashboard, & Visualisasi*
 * **Minggu 1:** Desain struktur halaman web, setup dasar Streamlit, dan membuat layout/tema dashboard HR yang bersih dan responsif.
@@ -69,12 +79,34 @@ Untuk kelancaran pengerjaan selama 4 minggu, berikut adalah rincian tugas dan ja
 * **Minggu 3:** Membuat tabel ranking kandidat yang interaktif (bisa di-sort/filter) serta grafik visualisasi (bar chart/gauge) menggunakan Plotly atau Altair.
 * **Minggu 4:** Menyempurnakan UI/UX (menambahkan loading spinner, alert penanganan error, styling) dan integrasi visual akhir.
 
+**📂 File yang Dikerjakan:**
+
+| File | Tanggung Jawab |
+|---|---|
+| `app/main.py` | Entry point aplikasi Streamlit: landing page, tema, dan navigasi sidebar |
+| `app/pages/1_Input.py` | Halaman form input Job Description, upload multi-file CV, validasi input, tombol "Analisis" |
+| `app/pages/2_Result.py` | Halaman tampilan tabel ranking interaktif, filter skor, tampilan detail keyword gap, tombol export |
+| `app/components/charts.py` | Komponen grafik Plotly: `render_score_bar_chart()` (bar chart) & `render_score_gauge()` (speedometer) |
+
+---
+
 ### 🧑‍💻 Anggota 3: Integration & Utility Engineer
 *Fokus Utama: Ekstraksi Dokumen, Ekspor Data, & Integrasi Sistem*
 * **Minggu 1:** Implementasi pembaca PDF menggunakan library `PyMuPDF` (fitz) atau `pdfplumber` untuk mengekstrak teks dari file CV yang diunggah.
 * **Minggu 2:** Menghubungkan fungsi ekstraksi PDF dengan komponen input text di Streamlit, serta menyambungkannya ke fungsi similarity buatan Anggota 1.
 * **Minggu 3:** Membuat fitur **Export PDF** (menggunakan library `fpdf2` atau `reportlab`) agar HR bisa mengunduh rangkuman ranking dalam bentuk file PDF yang rapi.
 * **Minggu 4:** Melakukan pengujian integrasi akhir secara menyeluruh (End-to-End Testing), mendokumentasikan kode, dan mempersiapkan materi demo presentasi kelompok.
+
+**📂 File yang Dikerjakan:**
+
+| File | Tanggung Jawab |
+|---|---|
+| `utils/pdf_extractor.py` | Fungsi `extract_text_from_pdf()` dan `extract_multiple_pdfs()` menggunakan PyMuPDF |
+| `utils/preprocessor.py` | Fungsi `clean_text()` dan `preprocess_for_model()` untuk membersihkan teks sebelum ke model AI |
+| `utils/exporter.py` | Fungsi `generate_pdf_report()` untuk menghasilkan laporan PDF ranking menggunakan fpdf2 |
+| `data/templates/` | File template teks Job Description siap pakai (`data_analyst.txt`, `frontend_developer.txt`, `marketing_executive.txt`) |
+
+
 
 ---
 
