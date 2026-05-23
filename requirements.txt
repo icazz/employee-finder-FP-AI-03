@@ -1,0 +1,27 @@
+# =============================================
+# Employee Finder - Python Dependencies
+# =============================================
+
+# Web Framework
+streamlit>=1.32.0
+
+# AI / NLP Model
+sentence-transformers>=2.7.0
+torch>=2.0.0
+
+# PDF Extraction
+pymupdf>=1.24.0          # diimpor sebagai: import fitz
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+scikit-learn>=1.3.0      # untuk cosine_similarity
+
+# Visualization
+plotly>=5.18.0
+
+# PDF Export / Report
+fpdf2>=2.7.0
+
+# Utility
+python-dotenv>=1.0.0

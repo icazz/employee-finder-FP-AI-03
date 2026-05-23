@@ -1,0 +1,32 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual environment
+venv/
+env/
+.venv/
+.env
+
+# Streamlit cache
+.streamlit/
+
+# Model cache (bisa besar, download ulang saat dibutuhkan)
+model_cache/
+*.bin
+*.pt
+*.pth
+
+# Data sensitif / file upload sementara
+data/uploads/
+*.pdf
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
