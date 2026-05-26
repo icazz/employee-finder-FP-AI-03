@@ -1,0 +1,48 @@
+[project]
+name = "ai-webapp-backend"
+version = "0.1.0"
+description = "AI Webapp Backend - FastAPI + file processing"
+requires-python = ">=3.11"
+dependencies = [
+    # Web framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.12",
+
+    # AI
+    "anthropic>=0.40.0",
+
+    # File processing
+    "pymupdf>=1.25.0",
+    "python-docx>=1.1.2",
+
+    # Validation & settings
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+
+    # Utilities
+    "httpx>=0.28.0",
+    "structlog>=24.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "ruff>=0.8.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
