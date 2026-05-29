@@ -87,9 +87,13 @@ Aplikasi ini dijalankan menggunakan **Docker Compose** agar semua layanan dapat 
     ```
     *Perintah ini akan membangun image backend & frontend secara otomatis, lalu menjalankan semua container.*
 
-5.  **Akses Aplikasi:**
+5.  **Jalankan website:**
+    ```bash
+        npm run dev
+    
+6.  **Akses Aplikasi:**
     Buka peramban (browser) Anda dan akses:
-    *   Frontend: [https://localhost](https://localhost)
+    *   Frontend: [http://localhost:3000](http://localhost:3000)
     *   API Backend (Health check): [https://localhost/api/v1/health](https://localhost/api/v1/health)
 
 ---
