@@ -1,17 +1,60 @@
 import io
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from app.core.config import settings
 from app.services.file_parser import build_csv
+from app.ai.similarity import score_many, CandidateResult
+from app.ai.keyword_gap import analyse_gaps, KeywordGapResult
+from app.ai.embedder import get_embedding_mode
 
 router = APIRouter(prefix="/api/v1")
 _csv_store: io.StringIO | None = None
+
+# ---------------------------------------------------------------------------
+# Shared request/response models
+# ---------------------------------------------------------------------------
 
 class ParseResponse(BaseModel):
     filenames: list[str]
     total_files: int
     message: str
+
+
+class CandidateScore(BaseModel):
+    rank: int
+    filename: str
+    # Raw cosine similarity (0–1)
+    score: float
+    score_pct: float
+    # Keyword coverage from gap analysis (0–100)
+    keyword_coverage_pct: float
+    # Hybrid = 70% semantic similarity + 30% keyword coverage
+    hybrid_score: float
+    hybrid_score_pct: float
+
+
+class KeywordGap(BaseModel):
+    filename: str
+    matched_keywords: list[str]
+    missing_keywords: list[str]
+    match_count: int
+    total_keywords: int
+    coverage_pct: float
+
+
+class AnalyzeResponse(BaseModel):
+    job_desc_preview: str
+    total_candidates: int
+    # 'voyage-ai' | 'tfidf' — lets the frontend show a badge
+    embedding_mode: str
+    rankings: list[CandidateScore]
+    keyword_gaps: list[KeywordGap]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 def _validate_upload(upload: UploadFile) -> None:
     filename = upload.filename or "unnamed"
@@ -39,6 +82,11 @@ async def _read_upload(upload: UploadFile) -> tuple[str, bytes]:
         )
 
     return filename, file_bytes
+
+
+# ---------------------------------------------------------------------------
+# Existing endpoints (unchanged)
+# ---------------------------------------------------------------------------
 
 @router.post("/documents/parse", response_model=ParseResponse)
 async def parse_uploaded_files(
@@ -74,6 +122,7 @@ async def parse_uploaded_files(
         message=f"Parsed {len(files)} file(s) and stored in memory.",
     )
 
+
 @router.get("/documents/csv")
 async def get_csv() -> StreamingResponse:
     if _csv_store is None:
@@ -85,6 +134,122 @@ async def get_csv() -> StreamingResponse:
         iter([_csv_store.read()]),
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=documents.csv"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# AI Analysis endpoint (Anggota 1 — core feature)
+# ---------------------------------------------------------------------------
+
+@router.post("/analyze", response_model=AnalyzeResponse)
+async def analyze_candidates(
+    job_desc: str = Form(..., description="The full Job Description text"),
+    uploads: list[UploadFile] = File(..., description="Candidate CV files (PDF/DOCX)"),
+) -> AnalyzeResponse:
+    """
+    Main AI analysis endpoint.
+
+    Accepts a Job Description (text) and one or more CV files (PDF/DOCX).
+
+    Returns:
+    - **rankings**: Candidates sorted by Cosine Similarity score (highest first).
+    - **keyword_gaps**: Per-candidate matched and missing JD keywords.
+    """
+    if not job_desc.strip():
+        raise HTTPException(status_code=400, detail="job_desc cannot be empty.")
+
+    if not uploads:
+        raise HTTPException(status_code=400, detail="No CV files were uploaded.")
+
+    # --- Parse uploaded files ---
+    files: list[tuple[str, bytes]] = []
+    errors: list[str] = []
+
+    for upload in uploads:
+        try:
+            files.append(await _read_upload(upload))
+        except HTTPException as exc:
+            errors.append(exc.detail)
+
+    if errors:
+        raise HTTPException(status_code=422, detail=errors)
+
+    # --- Extract text from each CV ---
+    from app.services.file_parser import _parse_file_to_text  # noqa: PLC0415
+
+    candidates: list[tuple[str, str]] = []
+    for filename, file_bytes in files:
+        try:
+            text = _parse_file_to_text(file_bytes, filename)
+            candidates.append((filename, text))
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Could not parse '{filename}': {exc}",
+            ) from exc
+
+    # --- Run AI analysis ---
+    # Both calls share the same JD — embedder batches efficiently
+    similarity_results: list[CandidateResult] = score_many(job_desc, candidates)
+    gap_results: list[KeywordGapResult] = analyse_gaps(job_desc, candidates)
+
+    # Detect which embedding backend is active
+    embedding_mode = get_embedding_mode()
+
+    # Map gap results by filename for easy lookup
+    gap_map: dict[str, KeywordGapResult] = {g.filename: g for g in gap_results}
+
+    # --- Hybrid Scoring ---
+    # Formula: hybrid = 0.70 * semantic_similarity + 0.30 * keyword_coverage
+    # This compensates for TF-IDF's low raw scores while rewarding keyword matches.
+    # With Voyage AI, semantic similarity alone is already very accurate, so
+    # keyword coverage acts as a useful tiebreaker.
+    SEMANTIC_WEIGHT = 0.70
+    KEYWORD_WEIGHT  = 0.30
+
+    hybrid_list: list[CandidateScore] = []
+    for r in similarity_results:
+        gap = gap_map.get(r.filename)
+        kw_coverage = (gap.coverage_pct / 100.0) if gap else 0.0
+
+        hybrid = SEMANTIC_WEIGHT * r.score + KEYWORD_WEIGHT * kw_coverage
+        hybrid = round(min(1.0, hybrid), 6)
+
+        hybrid_list.append(
+            CandidateScore(
+                rank=0,  # will assign after sort
+                filename=r.filename,
+                score=r.score,
+                score_pct=r.score_pct,
+                keyword_coverage_pct=gap.coverage_pct if gap else 0.0,
+                hybrid_score=hybrid,
+                hybrid_score_pct=round(hybrid * 100, 1),
+            )
+        )
+
+    # Re-rank by hybrid score (highest first)
+    hybrid_list.sort(key=lambda c: c.hybrid_score, reverse=True)
+    for i, candidate in enumerate(hybrid_list, start=1):
+        candidate.rank = i
+
+    keyword_gaps = [
+        KeywordGap(
+            filename=g.filename,
+            matched_keywords=g.matched_keywords,
+            missing_keywords=g.missing_keywords,
+            match_count=g.match_count,
+            total_keywords=g.total_keywords,
+            coverage_pct=g.coverage_pct,
+        )
+        for g in gap_results
+    ]
+
+    return AnalyzeResponse(
+        job_desc_preview=job_desc[:200].strip(),
+        total_candidates=len(candidates),
+        embedding_mode=embedding_mode,
+        rankings=hybrid_list,
+        keyword_gaps=keyword_gaps,
     )
 
 

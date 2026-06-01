@@ -1,4 +1,6 @@
+# pyrefly: ignore [missing-import]
 from pydantic_settings import BaseSettings, SettingsConfigDict
+# pyrefly: ignore [missing-import]
 from pydantic import Field, field_validator
 
 class Settings(BaseSettings):
@@ -6,7 +8,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
     
     # File Processing Settings
-    allowed_extensions: set[str] = Field(default={"pdf", "docx"}, alias="ALLOWED_EXTENSIONS")
+    allowed_extensions: str | set[str] = Field(default={"pdf", "docx"}, alias="ALLOWED_EXTENSIONS")
     max_file_size_mb: int = Field(default=25, alias="MAX_FILE_SIZE_MB")
 
     @property

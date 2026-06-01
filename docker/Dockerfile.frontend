@@ -1,0 +1,17 @@
+# Optimized Pre-built Dockerfile for Next.js 16
+# Memanfaatkan hasil build lokal yang sudah teruji sukses untuk menghindari error jaringan ECONNRESET di WSL2.
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=8080
+ENV HOSTNAME="0.0.0.0"
+
+# Menyalin langsung aset statis, hasil kompilasi, dan dependensi lokal
+COPY frontend/public ./public
+COPY frontend/.next ./.next
+COPY frontend/node_modules ./node_modules
+COPY frontend/package.json ./package.json
+
+EXPOSE 8080
+CMD ["npm", "run", "start"]

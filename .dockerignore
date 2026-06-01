@@ -1,0 +1,20 @@
+# Exclude backend virtual envs and python caches
+backend/venv
+backend/.venv
+**/.git
+**/.github
+**/.idea
+**/.vscode
+
+# Exclude python cache files
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.pytest_cache
+**/.ruff_cache
+
+# Exclude env files
+.env
+.env.local
+docker-compose.override.yml
