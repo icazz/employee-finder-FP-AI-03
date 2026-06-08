@@ -1,7 +1,13 @@
+"use client";
+
 import { Mail, Users } from "lucide-react";
-import { FaLinkedin, FaGithub } from "react-icons/fa";
+import { FaLinkedin, FaGithub, FaWhatsapp } from "react-icons/fa";
 
 export default function Contact() {
+    const handleScheduleDemo = () => {
+        window.open("https://chat.whatsapp.com/CXiWOnAF6y6KWQ9sGohpFt", "_blank");
+    };
+
     return (
         <section
             id="kontak"
@@ -75,7 +81,11 @@ export default function Contact() {
                         </div>
                     </div>
 
-                    <button className="px-8 py-4 rounded-full bg-white shadow-lg hover:scale-105 transition duration-300">
+                    <button 
+                        onClick={handleScheduleDemo}
+                        className="px-8 py-4 rounded-full bg-white shadow-lg hover:scale-105 transition duration-300 flex items-center gap-2 font-medium text-[#25D366]"
+                    >
+                        <FaWhatsapp size={20} />
                         Jadwalkan Demo
                     </button>
                 </div>

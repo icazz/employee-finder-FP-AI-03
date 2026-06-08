@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
     Upload,
     FileText,
@@ -10,10 +11,7 @@ import {
     Download,
     AlertCircle,
     Trash2,
-    Trophy,
     Search,
-    ChevronDown,
-    ChevronUp,
     Cpu,
 } from "lucide-react";
 
@@ -70,64 +68,10 @@ function scoreBar(pct: number) {
     );
 }
 
-// ─── Keyword Gap Card ─────────────────────────────────────────────────────────
-
-function GapCard({ gap }: { gap: KeywordGap }) {
-    const [open, setOpen] = useState(false);
-    return (
-        <div className="bg-[#F3E8DA] rounded-2xl p-4">
-            <button
-                className="w-full flex items-center justify-between text-left"
-                onClick={() => setOpen((o) => !o)}
-            >
-                <span className="font-medium text-[#5A5550] truncate max-w-[220px]">
-                    {gap.filename}
-                </span>
-                <span className="flex items-center gap-2 text-sm text-gray-600 shrink-0">
-                    {gap.match_count}/{gap.total_keywords} keywords
-                    {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                </span>
-            </button>
-
-            {open && (
-                <div className="mt-4 space-y-3">
-                    {gap.matched_keywords.length > 0 && (
-                        <div>
-                            <p className="text-xs font-semibold text-emerald-700 mb-1">
-                                ✅ Matched ({gap.matched_keywords.length})
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                                {gap.matched_keywords.map((kw) => (
-                                    <span key={kw} className="text-xs bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                                        {kw}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    {gap.missing_keywords.length > 0 && (
-                        <div>
-                            <p className="text-xs font-semibold text-red-600 mb-1">
-                                ❌ Missing ({gap.missing_keywords.length})
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                                {gap.missing_keywords.map((kw) => (
-                                    <span key={kw} className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
-                                        {kw}
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function UploadPage() {
+    const router = useRouter();
     const [files, setFiles] = useState<File[]>([]);
     const [jobDesc, setJobDesc] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -135,15 +79,13 @@ export default function UploadPage() {
     const [statusMessage, setStatusMessage] = useState("");
     const [errorMessage, setErrorMessage] = useState("");
     const [isParsed, setIsParsed] = useState(false);
-    const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResponse | null>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            setFiles(Array.from(e.target.files));
-            setIsParsed(false);
+        const newFiles = e.target.files;
+        if (newFiles) {
+            setFiles((prev) => [...prev, ...Array.from(newFiles)]);
             setErrorMessage("");
             setStatusMessage("");
-            setAnalyzeResult(null);
         }
     };
 
@@ -152,7 +94,6 @@ export default function UploadPage() {
         setIsParsed(false);
         setErrorMessage("");
         setStatusMessage("");
-        setAnalyzeResult(null);
     };
 
     const downloadCSV = async () => {
@@ -212,7 +153,6 @@ export default function UploadPage() {
             const data = await response.json();
             setStatusMessage(data.message || `Successfully parsed ${data.total_files} files.`);
             setIsParsed(true);
-            await downloadCSV();
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "An unexpected error occurred during parsing.";
             setErrorMessage(msg);
@@ -235,7 +175,6 @@ export default function UploadPage() {
         setIsAnalyzing(true);
         setErrorMessage("");
         setStatusMessage("🤖 AI is analyzing candidates... this may take 10-30 seconds.");
-        setAnalyzeResult(null);
 
         try {
             const formData = new FormData();
@@ -259,8 +198,13 @@ export default function UploadPage() {
             }
 
             const data: AnalyzeResponse = await response.json();
-            setAnalyzeResult(data);
             setStatusMessage(`✅ Analysis complete! ${data.total_candidates} candidates ranked.`);
+            
+            // Save to localStorage and navigate to results page
+            localStorage.setItem("analysisResults", JSON.stringify(data));
+            setTimeout(() => {
+                router.push("/results");
+            }, 1500);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "An unexpected error occurred during analysis.";
             setErrorMessage(msg);
@@ -372,7 +316,7 @@ export default function UploadPage() {
                                     {isLoading ? (
                                         <><Loader2 className="animate-spin" size={18} /> Parsing...</>
                                     ) : (
-                                        <><Upload size={18} /> Upload &amp; Parse CSV</>
+                                        <><FileText size={18} /> Preview CSV</>
                                     )}
                                 </button>
                                 {isParsed && (
@@ -380,9 +324,9 @@ export default function UploadPage() {
                                         id="download-csv-btn"
                                         type="button"
                                         onClick={downloadCSV}
-                                        className="py-4 px-6 rounded-2xl bg-emerald-600 text-white font-medium hover:scale-[1.02] hover:bg-emerald-700 transition flex items-center justify-center gap-2 shadow-xl cursor-pointer"
+                                        className="flex-1 py-4 rounded-2xl bg-emerald-600 text-white font-medium hover:scale-[1.02] hover:bg-emerald-700 transition flex items-center justify-center gap-2 shadow-xl cursor-pointer"
                                     >
-                                        <Download size={18} /> CSV
+                                        <Download size={18} /> Download CSV
                                     </button>
                                 )}
                             </div>
@@ -425,99 +369,11 @@ export default function UploadPage() {
                             <h3 className="text-sm font-semibold text-[#5A5550]">AI Engine</h3>
                         </div>
                         <p className="text-sm text-gray-600 leading-6">
-                            Uses <strong>sentence-transformers</strong> (all-MiniLM-L6-v2) for semantic
-                            similarity + keyword gap analysis. Runs locally — no API cost.
+                            Performs semantic similarity analysis + keyword gap detection. Runs locally — no API cost.
                         </p>
                     </div>
                 </div>
             </div>
-
-            {/* RESULTS SECTION */}
-            {analyzeResult && (
-                <div className="mt-16 max-w-5xl mx-auto space-y-8">
-
-                    {/* Header */}
-                    <div className="text-center">
-                        <h2 className="text-3xl font-serif text-[#5A5550]">
-                            Analysis Results
-                        </h2>
-                        <p className="mt-2 text-gray-600">
-                            {analyzeResult.total_candidates} candidates ranked •{" "}
-                            <span className="inline-flex items-center gap-1">
-                                <Cpu size={13} />
-                                {analyzeResult.embedding_mode === "sentence-transformers"
-                                    ? "sentence-transformers (local)"
-                                    : "TF-IDF (fallback)"}
-                            </span>
-                        </p>
-                    </div>
-
-                    {/* Rankings */}
-                    <div className="bg-[#E8DED3] rounded-3xl p-6 shadow-xl">
-                        <div className="flex items-center gap-3 mb-6">
-                            <Trophy size={24} className="text-yellow-500" />
-                            <h3 className="text-2xl font-serif">Candidate Rankings</h3>
-                        </div>
-
-                        <div className="space-y-4">
-                            {analyzeResult.rankings.map((c) => (
-                                <div key={c.filename} className="bg-[#F3E8DA] rounded-2xl p-5">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center gap-3">
-                                            <span className={`text-2xl font-bold ${rankColor(c.rank)}`}>
-                                                #{c.rank}
-                                            </span>
-                                            <span className="font-medium text-[#5A5550] truncate max-w-[200px]">
-                                                {c.filename}
-                                            </span>
-                                        </div>
-                                        <span className="text-xl font-bold text-[#5A5550]">
-                                            {c.hybrid_score_pct}%
-                                        </span>
-                                    </div>
-
-                                    {/* Hybrid score bar */}
-                                    <div className="mb-1">
-                                        <div className="flex justify-between text-xs text-gray-500 mb-0.5">
-                                            <span>Hybrid Score</span>
-                                            <span>{c.hybrid_score_pct}%</span>
-                                        </div>
-                                        {scoreBar(c.hybrid_score_pct)}
-                                    </div>
-
-                                    {/* Sub-scores */}
-                                    <div className="grid grid-cols-2 gap-3 mt-3 text-xs text-gray-600">
-                                        <div>
-                                            <span>Semantic Similarity: </span>
-                                            <span className="font-semibold">{c.score_pct}%</span>
-                                        </div>
-                                        <div>
-                                            <span>Keyword Coverage: </span>
-                                            <span className="font-semibold">{c.keyword_coverage_pct}%</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* Keyword Gap */}
-                    <div className="bg-[#E8DED3] rounded-3xl p-6 shadow-xl">
-                        <div className="flex items-center gap-3 mb-6">
-                            <Search size={24} className="text-[#81A6C6]" />
-                            <h3 className="text-2xl font-serif">Keyword Gap Analysis</h3>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-4">
-                            Click a candidate to see which JD keywords they have or are missing.
-                        </p>
-                        <div className="space-y-3">
-                            {analyzeResult.keyword_gaps.map((gap) => (
-                                <GapCard key={gap.filename} gap={gap} />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
         </main>
     );
 }
