@@ -4,20 +4,12 @@ WORKDIR /app
 COPY backend/pyproject.toml ./
 RUN uv sync --no-dev --no-install-project
 
-# Pre-download the sentence-transformers model into a known cache dir.
-# This avoids a slow HuggingFace download on the first request at runtime.
-ENV HF_HOME=/app/hf_cache
-RUN .venv/bin/python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
-
 FROM python:3.11-slim AS runtime
 WORKDIR /app
 COPY --from=builder /app/.venv /app/.venv
-# Bring the pre-downloaded model cache into the runtime image
-COPY --from=builder /app/hf_cache /app/hf_cache
 COPY backend/app ./app
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    HF_HOME=/app/hf_cache
+    PYTHONUNBUFFERED=1
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

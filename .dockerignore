@@ -18,3 +18,7 @@ backend/.venv
 .env
 .env.local
 docker-compose.override.yml
+
+# Exclude frontend local dependencies and build outputs
+frontend/node_modules
+frontend/.next

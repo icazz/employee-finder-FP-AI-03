@@ -1,4 +1,5 @@
 import io
+import re
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -10,6 +11,7 @@ from app.ai.embedder import get_embedding_mode
 
 router = APIRouter(prefix="/api/v1")
 _csv_store: io.StringIO | None = None
+
 
 # ---------------------------------------------------------------------------
 # Shared request/response models
@@ -32,6 +34,10 @@ class CandidateScore(BaseModel):
     # Hybrid = 70% semantic similarity + 30% keyword coverage
     hybrid_score: float
     hybrid_score_pct: float
+    # AI Summary & Evaluation
+    profile_summary: str = ""
+    is_match: bool = True
+    reason: str = ""
 
 
 class KeywordGap(BaseModel):
@@ -207,13 +213,43 @@ async def analyze_candidates(
     SEMANTIC_WEIGHT = 0.70
     KEYWORD_WEIGHT  = 0.30
 
-    hybrid_list: list[CandidateScore] = []
+    # Build a lookup for candidate CV texts to check gender
+    cv_map: dict[str, str] = {c[0]: c[1] for c in candidates}
+    
+    # Use AI-driven gender detection
+    from app.ai.summary import detect_genders_with_ai
+    jd_gender, candidate_genders = detect_genders_with_ai(job_desc, candidates)
+
+    # Calculate hybrid scores first for summary fallback logic
+    scores_pct = {}
+    calculated_hybrids = {}
     for r in similarity_results:
         gap = gap_map.get(r.filename)
         kw_coverage = (gap.coverage_pct / 100.0) if gap else 0.0
-
         hybrid = SEMANTIC_WEIGHT * r.score + KEYWORD_WEIGHT * kw_coverage
         hybrid = round(min(1.0, hybrid), 6)
+
+        cv_gender = candidate_genders.get(r.filename)
+
+        if jd_gender and cv_gender:
+            if cv_gender == jd_gender:
+                hybrid = 0.5 + 0.5 * hybrid
+            else:
+                hybrid = 0.5 * hybrid
+            hybrid = round(hybrid, 6)
+        
+        calculated_hybrids[r.filename] = hybrid
+        scores_pct[r.filename] = round(hybrid * 100, 1)
+
+    # Call Gemini / fallback candidate summarizer
+    from app.ai.summary import get_candidate_summaries
+    summaries = get_candidate_summaries(job_desc, candidates, scores_pct)
+
+    hybrid_list: list[CandidateScore] = []
+    for r in similarity_results:
+        gap = gap_map.get(r.filename)
+        hybrid = calculated_hybrids[r.filename]
+        c_summary = summaries.get(r.filename, {})
 
         hybrid_list.append(
             CandidateScore(
@@ -223,7 +259,10 @@ async def analyze_candidates(
                 score_pct=r.score_pct,
                 keyword_coverage_pct=gap.coverage_pct if gap else 0.0,
                 hybrid_score=hybrid,
-                hybrid_score_pct=round(hybrid * 100, 1),
+                hybrid_score_pct=scores_pct[r.filename],
+                profile_summary=c_summary.get("profile_summary", ""),
+                is_match=c_summary.get("is_match", True),
+                reason=c_summary.get("reason", "")
             )
         )
 
@@ -245,7 +284,7 @@ async def analyze_candidates(
     ]
 
     return AnalyzeResponse(
-        job_desc_preview=job_desc[:200].strip(),
+        job_desc_preview=job_desc.strip(),
         total_candidates=len(candidates),
         embedding_mode=embedding_mode,
         rankings=hybrid_list,

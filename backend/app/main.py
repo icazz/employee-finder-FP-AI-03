@@ -10,16 +10,18 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Preload the sentence-transformers model at startup so the first
-    /analyze request does not trigger a slow lazy download/load.
+    Preload embedding models or check api configuration at startup.
     """
-    logger.info("Preloading sentence-transformers model...")
     try:
         from app.ai.embedder import get_embedding_mode, _get_st_model  # noqa: PLC0415
-        _get_st_model()  # warms the lru_cache — downloads model if not cached
-        logger.info("Embedding mode ready: %s", get_embedding_mode())
+        mode = get_embedding_mode()
+        logger.info("Starting up with embedding mode: %s", mode)
+        if mode == "sentence-transformers":
+            logger.info("Preloading local sentence-transformers model...")
+            _get_st_model()  # warms the lru_cache
+            logger.info("Local sentence-transformers model loaded successfully.")
     except Exception as exc:  # noqa: BLE001
-        logger.warning("Model preload failed (will use TF-IDF fallback): %s", exc)
+        logger.warning("Lifespan startup initialization failed: %s", exc)
     yield
     # (shutdown logic here if needed)
 

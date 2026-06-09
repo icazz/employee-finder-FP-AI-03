@@ -6,6 +6,9 @@ from pydantic import Field, field_validator
 class Settings(BaseSettings):
     # API Keys
     anthropic_api_key: str = Field(default="", alias="ANTHROPIC_API_KEY")
+    gemini_api_key: str = Field(default="", alias="GEMINI_API_KEY")
+    hf_api_key: str = Field(default="", alias="HF_API_KEY")
+    use_local_embeddings: bool = Field(default=False, alias="USE_LOCAL_EMBEDDINGS")
     
     # File Processing Settings
     allowed_extensions: str | set[str] = Field(default={"pdf", "docx"}, alias="ALLOWED_EXTENSIONS")

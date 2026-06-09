@@ -23,6 +23,9 @@ interface CandidateScore {
     keyword_coverage_pct: number;
     hybrid_score: number;
     hybrid_score_pct: number;
+    profile_summary?: string;
+    is_match?: boolean;
+    reason?: string;
 }
 
 interface KeywordGap {
@@ -83,9 +86,16 @@ function RankingCard({ candidate, gap }: { candidate: CandidateScore; gap?: Keyw
                             #{candidate.rank}
                         </span>
                         <div>
-                            <h3 className="text-lg font-semibold text-[#5A5550]">
-                                {candidate.filename}
-                            </h3>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <h3 className="text-lg font-semibold text-[#5A5550]">
+                                    {candidate.filename}
+                                </h3>
+                                {candidate.profile_summary && (
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold shadow-sm ${candidate.is_match ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                                        {candidate.is_match ? "MATCH" : "NOT MATCH"}
+                                    </span>
+                                )}
+                            </div>
                             {gap && (
                                 <p className="text-xs text-gray-600">
                                     {gap.match_count}/{gap.total_keywords} keywords matched
@@ -130,6 +140,20 @@ function RankingCard({ candidate, gap }: { candidate: CandidateScore; gap?: Keyw
                     </div>
                 </div>
             </div>
+
+            {/* AI Summary and Evaluation */}
+            {candidate.profile_summary && (
+                <div className="mt-4 bg-white/60 p-4 rounded-xl border border-white/50 space-y-3 shadow-inner">
+                    <div>
+                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Ringkasan Profil (AI)</h4>
+                        <p className="text-sm text-gray-700 leading-relaxed mt-0.5">{candidate.profile_summary}</p>
+                    </div>
+                    <div>
+                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Evaluasi Kecocokan</h4>
+                        <p className="text-sm text-gray-600 italic mt-0.5">{candidate.reason}</p>
+                    </div>
+                </div>
+            )}
 
             {gap && (
                 <>
@@ -177,6 +201,8 @@ export default function ResultsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState("");
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+    const [showPreview, setShowPreview] = useState(false);
+    const [pdfError, setPdfError] = useState("");
 
     useEffect(() => {
         const loadResults = async () => {
@@ -217,143 +243,296 @@ export default function ResultsPage() {
         }
     };
 
-    const downloadPDF = async () => {
+    const downloadPDF = () => {
+        setShowPreview(true);
+    };
+
+    const generatePdfFromPreview = async () => {
         if (!reportRef.current) {
-            setError("Report content not found. Please reload the page.");
+            setPdfError("Report content not found. Please reload the page.");
             return;
         }
         
         setIsDownloadingPdf(true);
+        setPdfError("");
+        
+        // Define safe CSS properties to copy
+        const cssProperties = [
+            { name: "color", prop: "color" },
+            { name: "backgroundColor", prop: "background-color" },
+            { name: "fontSize", prop: "font-size" },
+            { name: "fontWeight", prop: "font-weight" },
+            { name: "fontStyle", prop: "font-style" },
+            { name: "fontFamily", prop: "font-family" },
+            { name: "lineHeight", prop: "line-height" },
+            { name: "letterSpacing", prop: "letter-spacing" },
+            { name: "marginTop", prop: "margin-top" },
+            { name: "marginRight", prop: "margin-right" },
+            { name: "marginBottom", prop: "margin-bottom" },
+            { name: "marginLeft", prop: "margin-left" },
+            { name: "paddingTop", prop: "padding-top" },
+            { name: "paddingRight", prop: "padding-right" },
+            { name: "paddingBottom", prop: "padding-bottom" },
+            { name: "paddingLeft", prop: "padding-left" },
+            { name: "textAlign", prop: "text-align" },
+            { name: "textTransform", prop: "text-transform" },
+            { name: "whiteSpace", prop: "white-space" },
+            { name: "borderRadius", prop: "border-radius" },
+            { name: "display", prop: "display" },
+            { name: "flexDirection", prop: "flex-direction" },
+            { name: "alignItems", prop: "align-items" },
+            { name: "justifyContent", prop: "justify-content" },
+            { name: "flexWrap", prop: "flex-wrap" },
+            { name: "flexGrow", prop: "flex-grow" },
+            { name: "flexShrink", prop: "flex-shrink" },
+            { name: "flex", prop: "flex" },
+            { name: "boxSizing", prop: "box-sizing" },
+            { name: "width", prop: "width" },
+            { name: "height", prop: "height" },
+            { name: "minWidth", prop: "min-width" },
+            { name: "maxWidth", prop: "max-width" },
+            { name: "minHeight", prop: "min-height" },
+            { name: "maxHeight", prop: "max-height" },
+            { name: "borderTopWidth", prop: "border-top-width" },
+            { name: "borderRightWidth", prop: "border-right-width" },
+            { name: "borderBottomWidth", prop: "border-bottom-width" },
+            { name: "borderLeftWidth", prop: "border-left-width" },
+            { name: "borderTopColor", prop: "border-top-color" },
+            { name: "borderRightColor", prop: "border-right-color" },
+            { name: "borderBottomColor", prop: "border-bottom-color" },
+            { name: "borderLeftColor", prop: "border-left-color" },
+            { name: "borderTopStyle", prop: "border-top-style" },
+            { name: "borderRightStyle", prop: "border-right-style" },
+            { name: "borderBottomStyle", prop: "border-bottom-style" },
+            { name: "borderLeftStyle", prop: "border-left-style" },
+            { name: "gap", prop: "gap" },
+        ];
+
+        // Helper to map computed styles from a live element to its clone
+        const mapStyles = (orig: HTMLElement, clone: HTMLElement) => {
+            const origElements = [orig, ...Array.from(orig.querySelectorAll("*"))] as HTMLElement[];
+            const cloneElements = [clone, ...Array.from(clone.querySelectorAll("*"))] as HTMLElement[];
+            
+            for (let i = 0; i < origElements.length; i++) {
+                const oEl = origElements[i];
+                const cEl = cloneElements[i];
+                if (!oEl || !cEl) continue;
+                
+                const computed = window.getComputedStyle(oEl);
+                cEl.removeAttribute("class");
+                cEl.style.cssText = "";
+                
+                cssProperties.forEach(({ name, prop }) => {
+                    try {
+                        let value = computed.getPropertyValue(prop).trim();
+                        if (!value) return;
+                        
+                        // Sanitize color values
+                        if (/oklch|oklab|lab|lch|hwb|color\(/i.test(value)) {
+                            if (prop.includes("color")) {
+                                if (prop === "background-color") {
+                                    value = "#ffffff";
+                                } else if (prop.includes("border")) {
+                                    value = "#e5e7eb";
+                                } else {
+                                    value = "#374151"; // fallback dark gray text
+                                }
+                            } else {
+                                value = "#D9CEBF";
+                            }
+                        }
+                        
+                        cEl.style.setProperty(prop, value, "important");
+                    } catch (e) {
+                        // Skip
+                    }
+                });
+            }
+        };
+
         try {
             const element = reportRef.current;
+            const targetWidth = element.offsetWidth;
+            const exactPageHeight = Math.floor(targetWidth * 1.414);
+            const targetPageHeight = exactPageHeight - 20; // safe bottom margin
             
-            // Create a clone and aggressively strip problematic CSS
-            const clonedElement = element.cloneNode(true) as HTMLElement;
-            
-            // Remove all class attributes to bypass Tailwind CSS completely
-            const walkAndClean = (el: HTMLElement) => {
-                el.querySelectorAll("*").forEach((node) => {
-                    const elem = node as HTMLElement;
-                    
-                    // Remove classes to bypass Tailwind
-                    elem.removeAttribute("class");
-                    
-                    // Remove style attributes and rebuild with safe properties only
-                    const computed = window.getComputedStyle(elem);
-                    elem.style.cssText = "";
-                    
-                    // List of CSS properties that are safe and needed
-                    const cssProperties = [
-                        { name: "color", prop: "color" },
-                        { name: "backgroundColor", prop: "background-color" },
-                        { name: "fontSize", prop: "font-size" },
-                        { name: "fontWeight", prop: "font-weight" },
-                        { name: "lineHeight", prop: "line-height" },
-                        { name: "marginTop", prop: "margin-top" },
-                        { name: "marginRight", prop: "margin-right" },
-                        { name: "marginBottom", prop: "margin-bottom" },
-                        { name: "marginLeft", prop: "margin-left" },
-                        { name: "paddingTop", prop: "padding-top" },
-                        { name: "paddingRight", prop: "padding-right" },
-                        { name: "paddingBottom", prop: "padding-bottom" },
-                        { name: "paddingLeft", prop: "padding-left" },
-                        { name: "textAlign", prop: "text-align" },
-                        { name: "borderRadius", prop: "border-radius" },
-                        { name: "display", prop: "display" },
-                        { name: "width", prop: "width" },
-                        { name: "height", prop: "height" },
-                        { name: "minHeight", prop: "min-height" },
-                        { name: "borderTopWidth", prop: "border-top-width" },
-                        { name: "borderRightWidth", prop: "border-right-width" },
-                        { name: "borderBottomWidth", prop: "border-bottom-width" },
-                        { name: "borderLeftWidth", prop: "border-left-width" },
-                        { name: "borderTopColor", prop: "border-top-color" },
-                        { name: "borderRightColor", prop: "border-right-color" },
-                        { name: "borderBottomColor", prop: "border-bottom-color" },
-                        { name: "borderLeftColor", prop: "border-left-color" },
-                        { name: "gap", prop: "gap" },
-                    ];
-                    
-                    cssProperties.forEach(({ name, prop }) => {
-                        try {
-                            let value = computed.getPropertyValue(prop).trim();
-                            
-                            if (!value) return;
-                            
-                            // Sanitize color values - replace modern CSS color functions with hex
-                            value = value
-                                .replace(/lab\([^)]*\)/gi, "#D9CEBF")
-                                .replace(/lch\([^)]*\)/gi, "#D9CEBF")
-                                .replace(/oklch\([^)]*\)/gi, "#D9CEBF")
-                                .replace(/oklab\([^)]*\)/gi, "#D9CEBF")
-                                .replace(/color\([^)]*\)/gi, "#D9CEBF")
-                                .replace(/hwb\([^)]*\)/gi, "#D9CEBF");
-                            
-                            elem.style.setProperty(prop, value, "important");
-                        } catch (e) {
-                            // Skip problematic properties
-                        }
-                    });
-                });
-            };
-            
-            walkAndClean(clonedElement);
-            
+            // Create a temporary hidden container to hold our generated pages for measurement and rendering
             const tempContainer = document.createElement("div");
             tempContainer.style.position = "absolute";
             tempContainer.style.left = "-9999px";
             tempContainer.style.top = "-9999px";
-            tempContainer.style.width = element.offsetWidth + "px";
-            tempContainer.style.backgroundColor = "#F3E8DA";
+            tempContainer.style.width = targetWidth + "px";
+            tempContainer.style.backgroundColor = "#ffffff";
             document.body.appendChild(tempContainer);
-            tempContainer.appendChild(clonedElement);
             
-            const canvas = await html2canvas(clonedElement, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: "#F3E8DA",
-                logging: false,
-                windowHeight: clonedElement.scrollHeight,
-                windowWidth: clonedElement.scrollWidth,
-                removeContainer: false,
-            });
+            // Helper to create a new page container
+            const createPage = (): HTMLElement => {
+                const page = document.createElement("div");
+                page.style.width = targetWidth + "px";
+                page.style.boxSizing = "border-box";
+                page.style.backgroundColor = "#ffffff";
+                page.style.position = "relative";
+                page.style.border = "none";
+                
+                // Copy container styles (padding, fonts, colors, border) from the original element
+                const computed = window.getComputedStyle(element);
+                const containerProperties = [
+                    "paddingTop", "paddingRight", "paddingBottom", "paddingLeft",
+                    "fontFamily", "color", "lineHeight"
+                ];
+                containerProperties.forEach((prop) => {
+                    try {
+                        const kebabProp = prop.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase());
+                        const val = computed.getPropertyValue(kebabProp);
+                        if (val) {
+                            page.style.setProperty(kebabProp, val);
+                        }
+                    } catch (e) {}
+                });
+                
+                tempContainer.appendChild(page);
+                return page;
+            };
             
-            // Clean up temporary container
-            document.body.removeChild(tempContainer);
+            let currentPage = createPage();
             
-            const imgData = canvas.toDataURL("image/png");
-            const pdf = new jsPDF({
-                orientation: "portrait",
-                unit: "mm",
-                format: "a4",
-            });
+            // 1. Add Header clone
+            const headerClone = element.children[0].cloneNode(true) as HTMLElement;
+            mapStyles(element.children[0] as HTMLElement, headerClone);
+            currentPage.appendChild(headerClone);
             
-            const imgWidth = 190; // A4 width minus margins
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const imgHeight = (canvas.height * imgWidth) / canvas.width;
-            let heightLeft = imgHeight;
-            let position = 0;
+            // 2. Add Job Description clone
+            const jdClone = element.children[1].cloneNode(true) as HTMLElement;
+            mapStyles(element.children[1] as HTMLElement, jdClone);
+            currentPage.appendChild(jdClone);
             
-            // Add first page
-            pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
+            // 3. Add Candidates container clone
+            const listContainer = element.children[2];
+            const listClone = document.createElement("div");
+            listClone.style.display = "flex";
+            listClone.style.flexDirection = "column";
+            listClone.style.gap = "24px"; // space-y-6 equivalent
+            currentPage.appendChild(listClone);
             
-            // Add additional pages if needed
-            while (heightLeft >= 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, "PNG", 10, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
+            // Add Heading clone
+            const headingClone = listContainer.children[0].cloneNode(true) as HTMLElement;
+            mapStyles(listContainer.children[0] as HTMLElement, headingClone);
+            listClone.appendChild(headingClone);
+            
+            // 4. Distribute Candidate Cards
+            let currentListClone = listClone;
+            
+            for (let i = 1; i < listContainer.children.length; i++) {
+                const card = listContainer.children[i] as HTMLElement;
+                const cardClone = card.cloneNode(true) as HTMLElement;
+                mapStyles(card, cardClone);
+                
+                // Append card to current list
+                currentListClone.appendChild(cardClone);
+                
+                // Check if current page overflows
+                if (currentPage.scrollHeight > targetPageHeight) {
+                    // For the first page, we need at least the heading (1 element)
+                    // For other pages, we need at least one card (1 element)
+                    const minElements = 1;
+                    
+                    if (currentListClone.children.length > minElements) {
+                        // Remove card from current page
+                        currentListClone.removeChild(cardClone);
+                        
+                        // Create new page
+                        currentPage = createPage();
+                        
+                        // Create a new list container in the new page
+                        currentListClone = document.createElement("div");
+                        currentListClone.style.display = "flex";
+                        currentListClone.style.flexDirection = "column";
+                        currentListClone.style.gap = "24px";
+                        currentPage.appendChild(currentListClone);
+                        
+                        // Append card to new page list
+                        currentListClone.appendChild(cardClone);
+                    }
+                }
             }
-            
-            pdf.save("candidate_rankings.pdf");
-            setError("");
-            setIsDownloadingPdf(false);
+
+            // Temporarily disable all document stylesheets to prevent html2canvas parsing errors
+            // on modern CSS features (like Tailwind v4 oklch/lab colors)
+            const disabledSheets: { sheet: CSSStyleSheet; wasDisabled: boolean }[] = [];
+            try {
+                for (let i = 0; i < document.styleSheets.length; i++) {
+                    const sheet = document.styleSheets[i];
+                    disabledSheets.push({ sheet, wasDisabled: sheet.disabled });
+                    sheet.disabled = true;
+                }
+            } catch (e) {
+                console.warn("Failed to temporarily disable some stylesheets:", e);
+            }
+
+            try {
+                const pages = Array.from(tempContainer.children) as HTMLElement[];
+                
+                // Finalize fixed height for pages
+                pages.forEach((page) => {
+                    page.style.height = exactPageHeight + "px";
+                    page.style.minHeight = exactPageHeight + "px";
+                    page.style.overflow = "hidden"; // Clip any tiny overflow
+                });
+                
+                const pdf = new jsPDF({
+                    orientation: "portrait",
+                    unit: "mm",
+                    format: "a4",
+                });
+                
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                for (let idx = 0; idx < pages.length; idx++) {
+                    const pageEl = pages[idx];
+                    
+                    const canvas = await html2canvas(pageEl, {
+                        scale: 2,
+                        useCORS: true,
+                        allowTaint: true,
+                        backgroundColor: "#ffffff",
+                        logging: false,
+                        windowHeight: exactPageHeight,
+                        windowWidth: targetWidth,
+                        removeContainer: false,
+                    });
+                    
+                    const imgData = canvas.toDataURL("image/png");
+                    
+                    if (idx > 0) {
+                        pdf.addPage();
+                    }
+                    
+                    pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+                }
+                
+                pdf.save("laporan_evaluasi_kandidat.pdf");
+                setPdfError("");
+            } finally {
+                // Clean up temporary container
+                if (tempContainer.parentNode) {
+                    tempContainer.parentNode.removeChild(tempContainer);
+                }
+                
+                // Re-enable all stylesheets
+                try {
+                    disabledSheets.forEach(({ sheet, wasDisabled }) => {
+                        sheet.disabled = wasDisabled;
+                    });
+                } catch (e) {
+                    console.warn("Failed to re-enable some stylesheets:", e);
+                }
+            }
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : "Unknown error occurred";
             console.error("PDF Download Error:", errorMsg);
-            setError(`Failed to generate PDF: ${errorMsg}`);
+            setPdfError(`Failed to generate PDF: ${errorMsg}`);
+        } finally {
             setIsDownloadingPdf(false);
         }
     };
@@ -397,7 +576,7 @@ export default function ResultsPage() {
                     <ArrowLeft size={20} /> Back to Upload
                 </button>
 
-                <div ref={reportRef} className="space-y-8">
+                <div className="space-y-8">
                     <div>
                         <div className="flex items-center gap-3 mb-2">
                             <Trophy size={32} className="text-yellow-500" />
@@ -406,7 +585,7 @@ export default function ResultsPage() {
                             </h1>
                         </div>
                         <p className="text-gray-600">
-                            {analysisData.total_candidates} candidates analyzed • {analysisData.embedding_mode}
+                            {analysisData.total_candidates} candidates analyzed
                         </p>
                     </div>
 
@@ -414,7 +593,7 @@ export default function ResultsPage() {
                     {analysisData.job_desc_preview && (
                         <div className="bg-white rounded-2xl p-6 shadow-md border-l-4 border-[#81A6C6]">
                             <h2 className="text-lg font-semibold text-[#5A5550] mb-3">Job Description</h2>
-                            <p className="text-gray-700 text-sm leading-relaxed line-clamp-3">
+                            <p className="text-gray-700 text-sm leading-relaxed">
                                 {analysisData.job_desc_preview}
                             </p>
                         </div>
@@ -462,6 +641,108 @@ export default function ResultsPage() {
                     </button>
                 </div>
             </div>
+
+            {/* PDF Report Preview Modal */}
+            {showPreview && (
+                <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+                    <div className="bg-[#E8DED3] rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden border border-[#D9CEBF]">
+                        {/* Modal Header */}
+                        <div className="p-4 bg-white border-b flex items-center justify-between">
+                            <div className="flex flex-col">
+                                <h3 className="text-lg font-bold text-[#5A5550]">Preview Laporan PDF</h3>
+                                {pdfError && (
+                                    <span className="text-xs text-rose-600 font-semibold mt-1">
+                                        Eror: {pdfError}
+                                    </span>
+                                )}
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={generatePdfFromPreview}
+                                    disabled={isDownloadingPdf}
+                                    className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition text-sm font-medium shadow disabled:opacity-50"
+                                >
+                                    {isDownloadingPdf ? (
+                                        <>
+                                            <Loader2 className="animate-spin" size={16} /> Generating...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Download size={16} /> Unduh PDF
+                                        </>
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setShowPreview(false)}
+                                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition text-sm font-medium"
+                                >
+                                    Tutup
+                                </button>
+                            </div>
+                        </div>
+                        
+                        {/* Modal Body / Report Sheet Container */}
+                        <div className="flex-1 overflow-y-auto p-8 bg-gray-100 flex justify-center">
+                            {/* Printable Document Sheet (A4 Proportion) */}
+                            <div 
+                                ref={reportRef} 
+                                className="bg-white p-12 shadow-lg max-w-[210mm] w-full min-h-[297mm] text-gray-800 font-sans border border-gray-200"
+                                style={{ boxSizing: "border-box" }}
+                            >
+                                {/* Report Title */}
+                                <div className="border-b-4 border-[#81A6C6] pb-6 mb-8 text-center">
+                                    <h1 className="text-2xl font-bold uppercase tracking-wider text-[#5A5550] font-serif">Laporan Evaluasi Kandidat</h1>
+                                    <p className="text-xs text-gray-500 mt-2">Dihasilkan oleh AI Employee Finder • {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                                </div>
+                                
+                                {/* Job Description */}
+                                <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-150">
+                                    <h2 className="text-xs font-bold uppercase text-gray-600 tracking-wide mb-2">Posisi / Kriteria Pekerjaan</h2>
+                                    <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{analysisData.job_desc_preview}</p>
+                                </div>
+                                
+                                {/* Candidate Evaluation List */}
+                                <div className="space-y-6">
+                                    <h2 className="text-xs font-bold uppercase text-gray-600 tracking-wide border-b pb-2">Hasil Pemeringkatan & Analisis</h2>
+                                    {analysisData.rankings.map((cand, idx) => (
+                                        <div key={cand.filename} className="pb-4 border-b border-gray-100 last:border-b-0 space-y-2">
+                                            <div className="flex items-center justify-between flex-wrap gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-sm font-bold bg-[#81A6C6]/20 text-[#5A5550] px-2 py-0.5 rounded">
+                                                        #{idx + 1}
+                                                    </span>
+                                                    <h3 className="text-sm font-bold text-gray-800">{cand.filename}</h3>
+                                                    {cand.profile_summary && (
+                                                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${cand.is_match ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>
+                                                            {cand.is_match ? "MATCH" : "NOT MATCH"}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs font-bold text-gray-500">
+                                                    Skor: {cand.hybrid_score_pct}%
+                                                </div>
+                                            </div>
+                                            
+                                            {cand.profile_summary && (
+                                                <div className="pl-8 space-y-1.5">
+                                                    <div>
+                                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Ringkasan Profil</span>
+                                                        <p className="text-xs text-gray-700 leading-relaxed">{cand.profile_summary}</p>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">Analisis Evaluasi</span>
+                                                        <p className="text-xs text-gray-600 italic leading-relaxed">{cand.reason}</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
