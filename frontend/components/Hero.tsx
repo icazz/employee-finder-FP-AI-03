@@ -26,12 +26,20 @@ export default function Hero() {
                         AI-powered insights tailored to your job requirements.
                     </p>
 
-                    <a
-                        href="/upload"
-                        className="mt-12 w-fit px-10 py-4 rounded-full bg-white shadow-xl hover:scale-105 transition duration-300 inline-block"
-                    >
-                        Mulai
-                    </a>
+                    <div className="mt-12 flex gap-4 items-center">
+                        <a
+                            href="/upload"
+                            className="w-fit px-10 py-4 rounded-full bg-white shadow-xl hover:scale-105 transition duration-300 inline-block"
+                        >
+                            Mulai
+                        </a>
+                        <a
+                            href="/interview"
+                            className="w-fit px-10 py-4 rounded-full bg-[#81A6C6] text-white shadow-xl hover:scale-105 transition duration-300 inline-block font-semibold"
+                        >
+                            Interview
+                        </a>
+                    </div>
                 </div>
 
                 {/* RIGHT */}

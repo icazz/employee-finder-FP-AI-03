@@ -295,3 +295,31 @@ async def analyze_candidates(
 @router.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+class ExtractNameResponse(BaseModel):
+    name: str
+
+
+@router.post("/extract-name", response_model=ExtractNameResponse)
+async def extract_name(
+    file: UploadFile = File(..., description="Candidate CV file (PDF/DOCX)"),
+) -> ExtractNameResponse:
+    """
+    Extract the candidate's name from an uploaded CV file.
+    """
+    filename, file_bytes = await _read_upload(file)
+    
+    from app.services.file_parser import _parse_file_to_text  # noqa: PLC0415
+    try:
+        text = _parse_file_to_text(file_bytes, filename)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Could not parse '{filename}': {exc}",
+        ) from exc
+        
+    from app.ai.summary import extract_candidate_name_with_ai  # noqa: PLC0415
+    extracted_name = extract_candidate_name_with_ai(filename, text)
+    
+    return ExtractNameResponse(name=extracted_name)

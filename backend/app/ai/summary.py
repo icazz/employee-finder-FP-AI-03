@@ -269,3 +269,74 @@ def get_candidate_summaries(
     except Exception as exc:
         logger.warning("Gemini candidate summarization failed: %s. Falling back.", exc)
         return {fname: _fallback_summary(fname, text, scores_pct.get(fname, 0.0)) for fname, text in candidates}
+
+
+def extract_candidate_name_with_ai(filename: str, text: str) -> str:
+    """
+    Extract candidate name from CV text using Gemini or a clean fallback.
+    """
+    api_key = settings.gemini_api_key
+    
+    # Fallback to cleaning up the filename
+    def _clean_filename(fname: str) -> str:
+        # Strip extension
+        name = fname.rsplit(".", 1)[0]
+        # Replace hyphens/underscores/special characters with spaces
+        name = re.sub(r"[-_]+", " ", name)
+        # Remove common phrases like "cv", "resume", "resume pdf", "evaluasi", etc.
+        name = re.sub(r"\b(cv|resume|pdf|curriculum|vitae|file|karyawan|calon|tugas|hasil|result)\b", "", name, flags=re.IGNORECASE)
+        # Remove extra spaces
+        name = " ".join(name.split())
+        # Capitalize words
+        name = name.title()
+        return name if name else "Karyawan Baru"
+
+    if not api_key or api_key == "your_gemini_api_key_here":
+        logger.info("Gemini API key not configured; using filename clean-up fallback.")
+        return _clean_filename(filename)
+
+    prompt = f"""Analyze the following candidate CV or resume text and extract the candidate's full name.
+
+Candidate CV text snippet:
+{text[:1200]}
+
+Filename: {filename}
+
+Rules:
+1. Identify the full name of the candidate. Usually, it is prominently featured at the beginning of the text or CV.
+2. If no name can be confidently identified, use the filename as a clue.
+3. Return ONLY a valid JSON object matching the following structure:
+{{
+  "name": "Candidate Full Name"
+}}
+"""
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "responseMimeType": "application/json"
+        }
+    }
+
+    try:
+        with httpx.Client(timeout=15.0) as client:
+            response = client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            res_data = response.json()
+            raw_text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            data = json.loads(raw_text)
+            extracted_name = data.get("name", "").strip()
+            if extracted_name:
+                return extracted_name
+    except Exception as exc:
+        logger.warning("Gemini candidate name extraction failed: %s. Using filename fallback.", exc)
+        
+    return _clean_filename(filename)
