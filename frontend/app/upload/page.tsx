@@ -243,12 +243,12 @@ export default function UploadPage() {
                             <p className="mt-6 text-xl text-[#5A5550] font-medium">
                                 Drag &amp; Drop CV Here
                             </p>
-                            <p className="text-gray-500 mt-2">PDF / DOCX</p>
+                            <p className="text-gray-500 mt-2">PDF / DOCX / CSV</p>
                             <input
                                 id="cv-file-input"
                                 type="file"
                                 multiple
-                                accept=".pdf,.docx"
+                                accept=".pdf,.docx,.csv"
                                 className="hidden"
                                 onChange={handleFileChange}
                             />
