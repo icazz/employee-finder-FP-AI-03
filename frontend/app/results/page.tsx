@@ -8,12 +8,17 @@ import {
     ChevronUp,
     Download,
     ArrowLeft,
+    ArrowRight,
     Loader2,
     AlertCircle,
+    CheckCircle,
     FileDown,
+    Mail,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
+import AcceptCountModal from "@/components/AcceptCountModal";
+import ComposeEmailModal from "@/components/ComposeEmailModal";
 
 interface CandidateScore {
     rank: number;
@@ -203,6 +208,12 @@ export default function ResultsPage() {
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [pdfError, setPdfError] = useState("");
+    const [showAcceptModal, setShowAcceptModal] = useState(false);
+    const [showComposeModal, setShowComposeModal] = useState(false);
+    const [acceptCount, setAcceptCount] = useState(0);
+    const [isSending, setIsSending] = useState(false);
+    const [emailMap, setEmailMap] = useState<Record<string, string>>({});
+    const [successMessage, setSuccessMessage] = useState("");
 
     useEffect(() => {
         const loadResults = async () => {
@@ -212,6 +223,23 @@ export default function ResultsPage() {
                     setAnalysisData(JSON.parse(stored));
                 } else {
                     setError("No analysis results found. Please run an analysis first.");
+                }
+
+                const response = await fetch("/api/v1/documents/csv");
+                if (response.ok) {
+                    const csvText = await response.text();
+                    const map: Record<string, string> = {};
+                    const lines = csvText.split("\n");
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue;
+                        const emailMatch = line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                        const filenameMatch = line.match(/^"([^"]+)"/);
+                        if (filenameMatch && emailMatch) {
+                            map[filenameMatch[1]] = emailMatch[0];
+                        }
+                    }
+                    setEmailMap(map);
                 }
             } catch (err) {
                 setError("Failed to load results");
@@ -224,16 +252,38 @@ export default function ResultsPage() {
     }, []);
 
     const downloadCSV = async () => {
+        if (!analysisData) return;
         try {
             const response = await fetch("/api/v1/documents/csv");
             if (!response.ok) {
                 throw new Error("Failed to download CSV");
             }
-            const blob = await response.blob();
+            const csvText = await response.text();
+            const emailMapLocal: Record<string, string> = {};
+            const lines = csvText.split("\n");
+            for (let i = 1; i < lines.length; i++) {
+                const line = lines[i].trim();
+                if (!line) continue;
+                const emailMatch = line.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+                const filenameMatch = line.match(/^"([^"]+)"/);
+                if (filenameMatch && emailMatch) {
+                    emailMapLocal[filenameMatch[1]] = emailMatch[0];
+                }
+            }
+
+            const header = "nomor,nama,persentase_semantic_similarity,persentase_keyword_coverage,persentase_hybrid_score,overall_match_persentase,ringkasan_profil,email";
+            const csvRows = analysisData.rankings.map((c) => {
+                const email = emailMapLocal[c.filename] || "";
+                const summary = (c.profile_summary || "").replace(/"/g, '""');
+                return `${c.rank},"${c.filename}",${c.score_pct},${c.keyword_coverage_pct},${c.hybrid_score_pct},${c.hybrid_score_pct},"${summary}",${email}`;
+            });
+
+            const csvContent = [header, ...csvRows].join("\n");
+            const blob = new Blob([csvContent], { type: "text/csv" });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement("a");
             a.href = url;
-            a.download = "parsed_candidates.csv";
+            a.download = "results.csv";
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -245,6 +295,67 @@ export default function ResultsPage() {
 
     const downloadPDF = () => {
         setShowPreview(true);
+    };
+
+    const handleSendGmailClick = () => {
+        setShowAcceptModal(true);
+    };
+
+    const handleAcceptCountNext = (count: number) => {
+        setAcceptCount(count);
+        setShowAcceptModal(false);
+        setShowComposeModal(true);
+    };
+
+    const handleSendEmail = async (subject: string, body: string) => {
+        if (!analysisData) return;
+
+        setIsSending(true);
+        try {
+            const recipients = analysisData.rankings
+                .slice(0, acceptCount)
+                .filter((c) => emailMap[c.filename])
+                .map((c) => ({
+                    name: c.filename.replace(/\.csv$/i, "").replace(/\.pdf$/i, "").replace(/\.docx$/i, ""),
+                    email: emailMap[c.filename],
+                }));
+
+            if (recipients.length === 0) {
+                setError("No email addresses found for the selected candidates.");
+                setIsSending(false);
+                return;
+            }
+
+            const response = await fetch("/api/v1/send-gmail", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ recipients, subject, body }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to send emails");
+            }
+
+            const result = await response.json();
+            setShowComposeModal(false);
+            setError("");
+            setSuccessMessage("");
+
+            const failedDetails = result.results
+                .filter((r: any) => r.status === "failed")
+                .map((r: any) => `${r.to}: ${r.error}`)
+                .join("; ");
+
+            if (result.failed > 0) {
+                setError(`Sent ${result.sent} email(s), ${result.failed} failed. ${failedDetails}`);
+            } else {
+                setSuccessMessage(`Successfully sent ${result.sent} email(s)!`);
+            }
+        } catch (err) {
+            setError("Failed to send emails. Please try again.");
+        } finally {
+            setIsSending(false);
+        }
     };
 
     const generatePdfFromPreview = async () => {
@@ -639,7 +750,27 @@ export default function ResultsPage() {
                             </>
                         )}
                     </button>
+                    <button
+                        onClick={handleSendGmailClick}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium shadow-md"
+                    >
+                        <Mail size={20} /> Send Gmail
+                    </button>
                 </div>
+
+                {successMessage && (
+                    <div className="mt-4 bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3">
+                        <CheckCircle className="text-emerald-600 shrink-0 mt-0.5" size={18} />
+                        <p className="text-sm text-emerald-800">{successMessage}</p>
+                    </div>
+                )}
+
+                {error && (
+                    <div className="mt-4 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+                        <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={18} />
+                        <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                )}
             </div>
 
             {/* PDF Report Preview Modal */}
@@ -743,6 +874,21 @@ export default function ResultsPage() {
                     </div>
                 </div>
             )}
+
+            <AcceptCountModal
+                isOpen={showAcceptModal}
+                totalCandidates={analysisData?.total_candidates || 0}
+                onClose={() => setShowAcceptModal(false)}
+                onNext={handleAcceptCountNext}
+            />
+
+            <ComposeEmailModal
+                isOpen={showComposeModal}
+                recipientCount={acceptCount}
+                onClose={() => setShowComposeModal(false)}
+                onSend={handleSendEmail}
+                isSending={isSending}
+            />
         </div>
     );
 }

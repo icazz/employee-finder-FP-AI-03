@@ -1,5 +1,6 @@
 import csv
 import io
+import re
 import fitz
 from docx import Document
 
@@ -22,6 +23,13 @@ def _parse_docx(file_bytes: bytes) -> str:
 def _flatten_to_single_line(text: str) -> str:
     return " ".join(text.split())
 
+
+def extract_email(text: str) -> str:
+    pattern = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
+    match = re.search(pattern, text)
+    return match.group(0) if match else ""
+
+
 def _parse_file_to_text(file_bytes: bytes, filename: str) -> str:
     ext = filename.rsplit(".", 1)[-1].lower()
 
@@ -37,11 +45,12 @@ def build_csv(files: list[tuple[str, bytes]]) -> io.StringIO:
     buffer = io.StringIO()
     writer = csv.writer(buffer, quoting=csv.QUOTE_ALL)
 
-    writer.writerow(["filename", "text"])
+    writer.writerow(["filename", "text", "email"])
 
     for filename, file_bytes in files:
         text = _parse_file_to_text(file_bytes, filename)
-        writer.writerow([filename, text])
+        email = extract_email(text)
+        writer.writerow([filename, text, email])
 
     buffer.seek(0)
     return buffer

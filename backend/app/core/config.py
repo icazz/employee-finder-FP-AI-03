@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     hf_api_key: str = Field(default="", alias="HF_API_KEY")
     use_local_embeddings: bool = Field(default=False, alias="USE_LOCAL_EMBEDDINGS")
     
+    # Ollama Settings
+    ollama_base_url: str = Field(default="http://172.29.0.1:11434", alias="OLLAMA_BASE_URL")
+    
     # File Processing Settings
     allowed_extensions: str | set[str] = Field(default={"pdf", "docx"}, alias="ALLOWED_EXTENSIONS")
     max_file_size_mb: int = Field(default=25, alias="MAX_FILE_SIZE_MB")

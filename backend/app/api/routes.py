@@ -1,5 +1,6 @@
 import io
 import re
+from typing import Optional
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -161,6 +162,8 @@ async def analyze_candidates(
     - **rankings**: Candidates sorted by Cosine Similarity score (highest first).
     - **keyword_gaps**: Per-candidate matched and missing JD keywords.
     """
+    global _csv_store
+
     if not job_desc.strip():
         raise HTTPException(status_code=400, detail="job_desc cannot be empty.")
 
@@ -179,6 +182,9 @@ async def analyze_candidates(
 
     if errors:
         raise HTTPException(status_code=422, detail=errors)
+
+    # --- Build CSV with emails ---
+    _csv_store = build_csv(files)
 
     # --- Extract text from each CV ---
     from app.services.file_parser import _parse_file_to_text  # noqa: PLC0415
@@ -292,6 +298,43 @@ async def analyze_candidates(
     )
 
 
+class GmailRequest(BaseModel):
+    recipients: list[dict]
+    subject: str
+    body: str
+
+
+class GmailResponse(BaseModel):
+    sent: int
+    failed: int
+    results: list[dict]
+
+
+@router.post("/send-gmail", response_model=GmailResponse)
+async def send_gmail_endpoint(request: GmailRequest) -> GmailResponse:
+    from app.services.gmail_sender import send_gmail
+
+    results = []
+    sent = 0
+    failed = 0
+
+    for recipient in request.recipients:
+        try:
+            result = send_gmail(
+                to_email=recipient["email"],
+                subject=request.subject,
+                body=request.body,
+                recipient_name=recipient["name"],
+            )
+            results.append(result)
+            sent += 1
+        except Exception as exc:
+            results.append({"to": recipient["email"], "status": "failed", "error": str(exc)})
+            failed += 1
+
+    return GmailResponse(sent=sent, failed=failed, results=results)
+
+
 @router.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
@@ -323,3 +366,266 @@ async def extract_name(
     extracted_name = extract_candidate_name_with_ai(filename, text)
     
     return ExtractNameResponse(name=extracted_name)
+
+
+# ---------------------------------------------------------------------------
+# Interview Session endpoints
+# ---------------------------------------------------------------------------
+
+class CreateSessionRequest(BaseModel):
+    session_id: str
+    name: str
+    password: str
+    email: str = ""
+
+
+class CreateSessionResponse(BaseModel):
+    session_id: str
+    name: str
+    active: bool
+
+
+class ValidateSessionRequest(BaseModel):
+    password: str
+
+
+class ValidateSessionResponse(BaseModel):
+    valid: bool
+    session_id: str = ""
+    name: str = ""
+    joined: bool = False
+
+
+class JoinSessionResponse(BaseModel):
+    success: bool
+    session_id: str = ""
+    name: str = ""
+
+
+class EndSessionResponse(BaseModel):
+    success: bool
+
+
+@router.post("/interview/session", response_model=CreateSessionResponse)
+async def create_interview_session(request: CreateSessionRequest) -> CreateSessionResponse:
+    from app.services.session_store import create_session
+
+    session = create_session(
+        name=request.name,
+        password=request.password,
+        email=request.email,
+        session_id=request.session_id,
+    )
+    return CreateSessionResponse(
+        session_id=session.session_id,
+        name=session.name,
+        active=session.active,
+    )
+
+
+@router.get("/interview/session/{session_id}")
+async def get_session_info(session_id: str):
+    from app.services.session_store import get_session
+
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {
+        "session_id": session.session_id,
+        "name": session.name,
+        "active": session.active,
+        "joined": session.joined,
+    }
+
+
+@router.post("/interview/session/{session_id}/validate", response_model=ValidateSessionResponse)
+async def validate_interview_session(session_id: str, request: ValidateSessionRequest) -> ValidateSessionResponse:
+    from app.services.session_store import validate_session
+
+    session = validate_session(session_id, request.password)
+    if not session:
+        return ValidateSessionResponse(valid=False)
+    return ValidateSessionResponse(
+        valid=True,
+        session_id=session.session_id,
+        name=session.name,
+        joined=session.joined,
+    )
+
+
+@router.post("/interview/session/{session_id}/join", response_model=JoinSessionResponse)
+async def join_interview_session(session_id: str) -> JoinSessionResponse:
+    from app.services.session_store import join_session, get_session
+
+    success = join_session(session_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Session not active or not found")
+    session = get_session(session_id)
+    return JoinSessionResponse(
+        success=True,
+        session_id=session.session_id,
+        name=session.name,
+    )
+
+
+@router.post("/interview/session/{session_id}/end", response_model=EndSessionResponse)
+async def end_interview_session(session_id: str) -> EndSessionResponse:
+    from app.services.session_store import end_session
+
+    success = end_session(session_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return EndSessionResponse(success=True)
+
+
+@router.delete("/interview/session/{session_id}")
+async def delete_interview_session(session_id: str):
+    from app.services.session_store import delete_session
+
+    success = delete_session(session_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"success": True}
+
+
+class GenerateQuestionsRequest(BaseModel):
+    topic: str
+    num_questions: int = 10
+    difficulty: str = "medium"
+
+
+class GenerateQuestionsResponse(BaseModel):
+    success: bool
+    question_count: int
+    questions: list[dict]
+
+
+@router.post("/interview/session/{session_id}/questions", response_model=GenerateQuestionsResponse)
+async def generate_questions(session_id: str, request: GenerateQuestionsRequest) -> GenerateQuestionsResponse:
+    from app.services.session_store import get_session, set_session_questions
+    from app.ai.interview import generate_interview_questions
+
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    questions = generate_interview_questions(
+        topic=request.topic,
+        num_questions=request.num_questions,
+        difficulty=request.difficulty
+    )
+
+    set_session_questions(session_id, questions, request.topic)
+
+    return GenerateQuestionsResponse(
+        success=True,
+        question_count=len(questions),
+        questions=questions
+    )
+
+
+@router.get("/interview/session/{session_id}/questions")
+async def get_questions(session_id: str):
+    from app.services.session_store import get_session, get_session_questions
+
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not session.questions:
+        raise HTTPException(status_code=404, detail="No questions generated yet")
+
+    questions_without_answers = []
+    for q in session.questions:
+        q_copy = q.copy()
+        q_copy.pop("correct_answer", None)
+        questions_without_answers.append(q_copy)
+
+    return {
+        "session_id": session_id,
+        "topic": session.topic,
+        "questions": questions_without_answers
+    }
+
+
+class SubmitAnswersRequest(BaseModel):
+    answers: dict[str, str]
+
+
+class SubmitAnswersResponse(BaseModel):
+    success: bool
+    message: str
+    mc_score: Optional[float] = None
+    essay_score: Optional[float] = None
+    final_score: Optional[float] = None
+
+
+@router.post("/interview/session/{session_id}/submit", response_model=SubmitAnswersResponse)
+async def submit_answers(session_id: str, request: SubmitAnswersRequest) -> SubmitAnswersResponse:
+    from app.services.session_store import get_session, submit_answers, calculate_score, evaluate_essays
+
+    session = get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    if not session.active:
+        raise HTTPException(status_code=400, detail="Session is no longer active")
+
+    if session.submitted:
+        raise HTTPException(status_code=400, detail="Answers already submitted")
+
+    int_answers = {int(k): v for k, v in request.answers.items()}
+    success = submit_answers(session_id, int_answers)
+
+    if not success:
+        raise HTTPException(status_code=400, detail="Failed to submit answers")
+
+    evaluate_essays(session_id)
+    scores = calculate_score(session_id)
+
+    return SubmitAnswersResponse(
+        success=True,
+        message="Answers submitted successfully",
+        mc_score=scores.get("mc_score") if scores else None,
+        essay_score=scores.get("essay_score") if scores else None,
+        final_score=scores.get("final_score") if scores else None
+    )
+
+
+@router.get("/interview/session/{session_id}/results")
+async def get_results(session_id: str):
+    from app.services.session_store import get_session_full_results
+
+    results = get_session_full_results(session_id)
+    if not results:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    return results
+
+
+@router.get("/interview/sessions")
+async def get_all_sessions():
+    from app.services.session_store import get_all_sessions, get_session_full_results
+
+    sessions = get_all_sessions()
+    results = []
+    
+    for s in sessions:
+        session_id = s.get("session_id")
+        full_results = get_session_full_results(session_id)
+        if full_results:
+            results.append(full_results)
+        else:
+            results.append({
+                "session_id": session_id,
+                "name": s.get("name"),
+                "email": s.get("email"),
+                "topic": s.get("topic"),
+                "submitted": False,
+                "mc_score": None,
+                "essay_score": None,
+                "final_score": None,
+                "results": []
+            })
+    
+    return {"sessions": results}
