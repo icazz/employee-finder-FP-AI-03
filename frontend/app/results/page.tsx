@@ -11,6 +11,9 @@ import {
     Loader2,
     AlertCircle,
     FileDown,
+    UserCheck,
+    Mail,
+    CheckCircle,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -74,7 +77,7 @@ function scoreBar(pct: number) {
     );
 }
 
-function RankingCard({ candidate, gap }: { candidate: CandidateScore; gap?: KeywordGap }) {
+function RankingCard({ candidate, gap, onInvite, isInvited }: { candidate: CandidateScore; gap?: KeywordGap; onInvite?: (candidate: CandidateScore) => void; isInvited?: boolean }) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -134,10 +137,33 @@ function RankingCard({ candidate, gap }: { candidate: CandidateScore; gap?: Keyw
                     </div>
                 </div>
 
-                <div className="text-right">
+                <div className="text-right flex flex-col items-end gap-3">
                     <div className="text-4xl font-bold text-[#5A5550] mb-2">
                         {candidate.hybrid_score_pct}%
                     </div>
+                    {onInvite && (
+                        <button
+                            onClick={() => onInvite(candidate)}
+                            disabled={isInvited}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition shadow-md hover:scale-[1.02] ${
+                                isInvited
+                                    ? "bg-emerald-100 text-emerald-700 cursor-default"
+                                    : "bg-[#81A6C6] text-white hover:bg-[#6c93b5]"
+                            }`}
+                        >
+                            {isInvited ? (
+                                <>
+                                    <CheckCircle size={16} />
+                                    Berkas Diloloskan
+                                </>
+                            ) : (
+                                <>
+                                    <Mail size={16} />
+                                    Loloskan & Undang
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -203,6 +229,41 @@ export default function ResultsPage() {
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
     const [showPreview, setShowPreview] = useState(false);
     const [pdfError, setPdfError] = useState("");
+    const [invitedCandidates, setInvitedCandidates] = useState<Set<string>>(new Set());
+
+    const handleInviteCandidate = (candidate: CandidateScore) => {
+        // Save to localStorage interviewQueue
+        const existing = JSON.parse(localStorage.getItem("interviewQueue") || "[]");
+        const alreadyQueued = existing.some((item: { filename: string }) => item.filename === candidate.filename);
+        if (!alreadyQueued) {
+            existing.push({
+                name: candidate.filename.replace(/\.(pdf|docx)$/i, "").replace(/[-_]/g, " "),
+                filename: candidate.filename,
+                score: candidate.hybrid_score_pct,
+                email: "",
+            });
+            localStorage.setItem("interviewQueue", JSON.stringify(existing));
+        }
+        setInvitedCandidates((prev) => new Set([...prev, candidate.filename]));
+    };
+
+    const handleBulkInvite = () => {
+        if (!analysisData) return;
+        const matchCandidates = analysisData.rankings.filter((c) => c.is_match !== false);
+        const existing = JSON.parse(localStorage.getItem("interviewQueue") || "[]");
+        const existingFilenames = new Set(existing.map((item: { filename: string }) => item.filename));
+        const newItems = matchCandidates
+            .filter((c) => !existingFilenames.has(c.filename))
+            .map((c) => ({
+                name: c.filename.replace(/\.(pdf|docx)$/i, "").replace(/[-_]/g, " "),
+                filename: c.filename,
+                score: c.hybrid_score_pct,
+                email: "",
+            }));
+        localStorage.setItem("interviewQueue", JSON.stringify([...existing, ...newItems]));
+        setInvitedCandidates((prev) => new Set([...prev, ...matchCandidates.map((c) => c.filename)]));
+        router.push("/interview");
+    };
 
     useEffect(() => {
         const loadResults = async () => {
@@ -610,6 +671,8 @@ export default function ResultsPage() {
                                     key={candidate.filename}
                                     candidate={candidate}
                                     gap={gap}
+                                    onInvite={handleInviteCandidate}
+                                    isInvited={invitedCandidates.has(candidate.filename)}
                                 />
                             );
                         })}
@@ -618,6 +681,12 @@ export default function ResultsPage() {
 
                 {/* Download Buttons */}
                 <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+                    <button
+                        onClick={handleBulkInvite}
+                        className="flex items-center justify-center gap-2 px-6 py-3 bg-[#81A6C6] text-white rounded-lg hover:bg-[#6c93b5] transition font-medium shadow-md"
+                    >
+                        <UserCheck size={20} /> Loloskan Semua MATCH & Undang
+                    </button>
                     <button
                         onClick={downloadCSV}
                         className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium shadow-md"
