@@ -33,12 +33,6 @@ export default function Hero() {
                         >
                             Mulai
                         </a>
-                        <a
-                            href="/interview"
-                            className="w-fit px-10 py-4 rounded-full bg-[#81A6C6] text-white shadow-xl hover:scale-105 transition duration-300 inline-block font-semibold"
-                        >
-                            Interview
-                        </a>
                     </div>
                 </div>
 

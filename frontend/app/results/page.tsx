@@ -65,8 +65,8 @@ function rankBgColor(rank: number) {
 function scoreBar(pct: number) {
     const color =
         pct >= 70 ? "bg-emerald-500" :
-        pct >= 40 ? "bg-[#81A6C6]" :
-        "bg-red-400";
+            pct >= 40 ? "bg-[#81A6C6]" :
+                "bg-red-400";
     return (
         <div className="w-full bg-[#D9CEBF] rounded-full h-3 mt-2">
             <div
@@ -145,11 +145,10 @@ function RankingCard({ candidate, gap, onInvite, isInvited }: { candidate: Candi
                         <button
                             onClick={() => onInvite(candidate)}
                             disabled={isInvited}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition shadow-md hover:scale-[1.02] ${
-                                isInvited
-                                    ? "bg-emerald-100 text-emerald-700 cursor-default"
-                                    : "bg-[#81A6C6] text-white hover:bg-[#6c93b5]"
-                            }`}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition shadow-md hover:scale-[1.02] ${isInvited
+                                ? "bg-emerald-100 text-emerald-700 cursor-default"
+                                : "bg-[#81A6C6] text-white hover:bg-[#6c93b5]"
+                                }`}
                         >
                             {isInvited ? (
                                 <>
@@ -159,7 +158,7 @@ function RankingCard({ candidate, gap, onInvite, isInvited }: { candidate: Candi
                             ) : (
                                 <>
                                     <Mail size={16} />
-                                    Loloskan & Undang
+                                    Loloskan
                                 </>
                             )}
                         </button>
@@ -247,23 +246,7 @@ export default function ResultsPage() {
         setInvitedCandidates((prev) => new Set([...prev, candidate.filename]));
     };
 
-    const handleBulkInvite = () => {
-        if (!analysisData) return;
-        const matchCandidates = analysisData.rankings.filter((c) => c.is_match !== false);
-        const existing = JSON.parse(localStorage.getItem("interviewQueue") || "[]");
-        const existingFilenames = new Set(existing.map((item: { filename: string }) => item.filename));
-        const newItems = matchCandidates
-            .filter((c) => !existingFilenames.has(c.filename))
-            .map((c) => ({
-                name: c.filename.replace(/\.(pdf|docx)$/i, "").replace(/[-_]/g, " "),
-                filename: c.filename,
-                score: c.hybrid_score_pct,
-                email: "",
-            }));
-        localStorage.setItem("interviewQueue", JSON.stringify([...existing, ...newItems]));
-        setInvitedCandidates((prev) => new Set([...prev, ...matchCandidates.map((c) => c.filename)]));
-        router.push("/interview");
-    };
+
 
     useEffect(() => {
         const loadResults = async () => {
@@ -313,10 +296,10 @@ export default function ResultsPage() {
             setPdfError("Report content not found. Please reload the page.");
             return;
         }
-        
+
         setIsDownloadingPdf(true);
         setPdfError("");
-        
+
         // Define safe CSS properties to copy
         const cssProperties = [
             { name: "color", prop: "color" },
@@ -373,21 +356,21 @@ export default function ResultsPage() {
         const mapStyles = (orig: HTMLElement, clone: HTMLElement) => {
             const origElements = [orig, ...Array.from(orig.querySelectorAll("*"))] as HTMLElement[];
             const cloneElements = [clone, ...Array.from(clone.querySelectorAll("*"))] as HTMLElement[];
-            
+
             for (let i = 0; i < origElements.length; i++) {
                 const oEl = origElements[i];
                 const cEl = cloneElements[i];
                 if (!oEl || !cEl) continue;
-                
+
                 const computed = window.getComputedStyle(oEl);
                 cEl.removeAttribute("class");
                 cEl.style.cssText = "";
-                
+
                 cssProperties.forEach(({ name, prop }) => {
                     try {
                         let value = computed.getPropertyValue(prop).trim();
                         if (!value) return;
-                        
+
                         // Sanitize color values
                         if (/oklch|oklab|lab|lch|hwb|color\(/i.test(value)) {
                             if (prop.includes("color")) {
@@ -402,7 +385,7 @@ export default function ResultsPage() {
                                 value = "#D9CEBF";
                             }
                         }
-                        
+
                         cEl.style.setProperty(prop, value, "important");
                     } catch (e) {
                         // Skip
@@ -416,7 +399,7 @@ export default function ResultsPage() {
             const targetWidth = element.offsetWidth;
             const exactPageHeight = Math.floor(targetWidth * 1.414);
             const targetPageHeight = exactPageHeight - 20; // safe bottom margin
-            
+
             // Create a temporary hidden container to hold our generated pages for measurement and rendering
             const tempContainer = document.createElement("div");
             tempContainer.style.position = "absolute";
@@ -425,7 +408,7 @@ export default function ResultsPage() {
             tempContainer.style.width = targetWidth + "px";
             tempContainer.style.backgroundColor = "#ffffff";
             document.body.appendChild(tempContainer);
-            
+
             // Helper to create a new page container
             const createPage = (): HTMLElement => {
                 const page = document.createElement("div");
@@ -434,7 +417,7 @@ export default function ResultsPage() {
                 page.style.backgroundColor = "#ffffff";
                 page.style.position = "relative";
                 page.style.border = "none";
-                
+
                 // Copy container styles (padding, fonts, colors, border) from the original element
                 const computed = window.getComputedStyle(element);
                 const containerProperties = [
@@ -448,25 +431,25 @@ export default function ResultsPage() {
                         if (val) {
                             page.style.setProperty(kebabProp, val);
                         }
-                    } catch (e) {}
+                    } catch (e) { }
                 });
-                
+
                 tempContainer.appendChild(page);
                 return page;
             };
-            
+
             let currentPage = createPage();
-            
+
             // 1. Add Header clone
             const headerClone = element.children[0].cloneNode(true) as HTMLElement;
             mapStyles(element.children[0] as HTMLElement, headerClone);
             currentPage.appendChild(headerClone);
-            
+
             // 2. Add Job Description clone
             const jdClone = element.children[1].cloneNode(true) as HTMLElement;
             mapStyles(element.children[1] as HTMLElement, jdClone);
             currentPage.appendChild(jdClone);
-            
+
             // 3. Add Candidates container clone
             const listContainer = element.children[2];
             const listClone = document.createElement("div");
@@ -474,43 +457,43 @@ export default function ResultsPage() {
             listClone.style.flexDirection = "column";
             listClone.style.gap = "24px"; // space-y-6 equivalent
             currentPage.appendChild(listClone);
-            
+
             // Add Heading clone
             const headingClone = listContainer.children[0].cloneNode(true) as HTMLElement;
             mapStyles(listContainer.children[0] as HTMLElement, headingClone);
             listClone.appendChild(headingClone);
-            
+
             // 4. Distribute Candidate Cards
             let currentListClone = listClone;
-            
+
             for (let i = 1; i < listContainer.children.length; i++) {
                 const card = listContainer.children[i] as HTMLElement;
                 const cardClone = card.cloneNode(true) as HTMLElement;
                 mapStyles(card, cardClone);
-                
+
                 // Append card to current list
                 currentListClone.appendChild(cardClone);
-                
+
                 // Check if current page overflows
                 if (currentPage.scrollHeight > targetPageHeight) {
                     // For the first page, we need at least the heading (1 element)
                     // For other pages, we need at least one card (1 element)
                     const minElements = 1;
-                    
+
                     if (currentListClone.children.length > minElements) {
                         // Remove card from current page
                         currentListClone.removeChild(cardClone);
-                        
+
                         // Create new page
                         currentPage = createPage();
-                        
+
                         // Create a new list container in the new page
                         currentListClone = document.createElement("div");
                         currentListClone.style.display = "flex";
                         currentListClone.style.flexDirection = "column";
                         currentListClone.style.gap = "24px";
                         currentPage.appendChild(currentListClone);
-                        
+
                         // Append card to new page list
                         currentListClone.appendChild(cardClone);
                     }
@@ -532,26 +515,26 @@ export default function ResultsPage() {
 
             try {
                 const pages = Array.from(tempContainer.children) as HTMLElement[];
-                
+
                 // Finalize fixed height for pages
                 pages.forEach((page) => {
                     page.style.height = exactPageHeight + "px";
                     page.style.minHeight = exactPageHeight + "px";
                     page.style.overflow = "hidden"; // Clip any tiny overflow
                 });
-                
+
                 const pdf = new jsPDF({
                     orientation: "portrait",
                     unit: "mm",
                     format: "a4",
                 });
-                
+
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
-                
+
                 for (let idx = 0; idx < pages.length; idx++) {
                     const pageEl = pages[idx];
-                    
+
                     const canvas = await html2canvas(pageEl, {
                         scale: 2,
                         useCORS: true,
@@ -562,16 +545,16 @@ export default function ResultsPage() {
                         windowWidth: targetWidth,
                         removeContainer: false,
                     });
-                    
+
                     const imgData = canvas.toDataURL("image/png");
-                    
+
                     if (idx > 0) {
                         pdf.addPage();
                     }
-                    
+
                     pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
                 }
-                
+
                 pdf.save("laporan_evaluasi_kandidat.pdf");
                 setPdfError("");
             } finally {
@@ -579,7 +562,7 @@ export default function ResultsPage() {
                 if (tempContainer.parentNode) {
                     tempContainer.parentNode.removeChild(tempContainer);
                 }
-                
+
                 // Re-enable all stylesheets
                 try {
                     disabledSheets.forEach(({ sheet, wasDisabled }) => {
@@ -610,10 +593,10 @@ export default function ResultsPage() {
         return (
             <div className="min-h-screen bg-gradient-to-br from-[#F3E8DA] to-[#E8DED3] p-6">
                 <button
-                    onClick={() => router.back()}
+                    onClick={() => router.push("/")}
                     className="mb-6 flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition"
                 >
-                    <ArrowLeft size={20} /> Back
+                    <ArrowLeft size={20} /> Kembali ke Beranda
                 </button>
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex items-start gap-4">
                     <AlertCircle className="text-red-600 shrink-0 mt-1" size={24} />
@@ -631,10 +614,10 @@ export default function ResultsPage() {
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <button
-                    onClick={() => router.back()}
+                    onClick={() => router.push("/")}
                     className="mb-6 flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition"
                 >
-                    <ArrowLeft size={20} /> Back to Upload
+                    <ArrowLeft size={20} /> Kembali ke Beranda
                 </button>
 
                 <div className="space-y-8">
@@ -681,12 +664,6 @@ export default function ResultsPage() {
 
                 {/* Download Buttons */}
                 <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-                    <button
-                        onClick={handleBulkInvite}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-[#81A6C6] text-white rounded-lg hover:bg-[#6c93b5] transition font-medium shadow-md"
-                    >
-                        <UserCheck size={20} /> Loloskan Semua MATCH & Undang
-                    </button>
                     <button
                         onClick={downloadCSV}
                         className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium shadow-md"
@@ -749,12 +726,12 @@ export default function ResultsPage() {
                                 </button>
                             </div>
                         </div>
-                        
+
                         {/* Modal Body / Report Sheet Container */}
                         <div className="flex-1 overflow-y-auto p-8 bg-gray-100 flex justify-center">
                             {/* Printable Document Sheet (A4 Proportion) */}
-                            <div 
-                                ref={reportRef} 
+                            <div
+                                ref={reportRef}
                                 className="bg-white p-12 shadow-lg max-w-[210mm] w-full min-h-[297mm] text-gray-800 font-sans border border-gray-200"
                                 style={{ boxSizing: "border-box" }}
                             >
@@ -763,13 +740,13 @@ export default function ResultsPage() {
                                     <h1 className="text-2xl font-bold uppercase tracking-wider text-[#5A5550] font-serif">Laporan Evaluasi Kandidat</h1>
                                     <p className="text-xs text-gray-500 mt-2">Dihasilkan oleh AI Employee Finder • {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
                                 </div>
-                                
+
                                 {/* Job Description */}
                                 <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-150">
                                     <h2 className="text-xs font-bold uppercase text-gray-600 tracking-wide mb-2">Posisi / Kriteria Pekerjaan</h2>
                                     <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{analysisData.job_desc_preview}</p>
                                 </div>
-                                
+
                                 {/* Candidate Evaluation List */}
                                 <div className="space-y-6">
                                     <h2 className="text-xs font-bold uppercase text-gray-600 tracking-wide border-b pb-2">Hasil Pemeringkatan & Analisis</h2>
@@ -791,7 +768,7 @@ export default function ResultsPage() {
                                                     Skor: {cand.hybrid_score_pct}%
                                                 </div>
                                             </div>
-                                            
+
                                             {cand.profile_summary && (
                                                 <div className="pl-8 space-y-1.5">
                                                     <div>
