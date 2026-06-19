@@ -8,7 +8,7 @@ import {
 export default function Process() {
     return (
         <section
-            id="proses"
+            id="prosescd "
             className="pt-32 pb-20 px-6">
 
             {/* TITLE */}
