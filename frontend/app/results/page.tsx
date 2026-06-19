@@ -462,42 +462,29 @@ export default function ResultsPage() {
             const headingClone = listContainer.children[0].cloneNode(true) as HTMLElement;
             mapStyles(listContainer.children[0] as HTMLElement, headingClone);
             listClone.appendChild(headingClone);
-
-            // 4. Distribute Candidate Cards
+            // 4. Distribute Candidate Cards (Forced 2-Page Layout)
             let currentListClone = listClone;
-
+            const totalCandidates = listContainer.children.length - 1;
+            const splitIndex = 2; // Put first 2 candidates on Page 1, and the rest on Page 2
+            
             for (let i = 1; i < listContainer.children.length; i++) {
                 const card = listContainer.children[i] as HTMLElement;
                 const cardClone = card.cloneNode(true) as HTMLElement;
                 mapStyles(card, cardClone);
-
-                // Append card to current list
-                currentListClone.appendChild(cardClone);
-
-                // Check if current page overflows
-                if (currentPage.scrollHeight > targetPageHeight) {
-                    // For the first page, we need at least the heading (1 element)
-                    // For other pages, we need at least one card (1 element)
-                    const minElements = 1;
-
-                    if (currentListClone.children.length > minElements) {
-                        // Remove card from current page
-                        currentListClone.removeChild(cardClone);
-
-                        // Create new page
-                        currentPage = createPage();
-
-                        // Create a new list container in the new page
-                        currentListClone = document.createElement("div");
-                        currentListClone.style.display = "flex";
-                        currentListClone.style.flexDirection = "column";
-                        currentListClone.style.gap = "24px";
-                        currentPage.appendChild(currentListClone);
-
-                        // Append card to new page list
-                        currentListClone.appendChild(cardClone);
-                    }
+                
+                if (i === splitIndex + 1 && totalCandidates > 2) {
+                    // Create new page
+                    currentPage = createPage();
+                    
+                    // Create a new list container in the new page
+                    currentListClone = document.createElement("div");
+                    currentListClone.style.display = "flex";
+                    currentListClone.style.flexDirection = "column";
+                    currentListClone.style.gap = "24px";
+                    currentPage.appendChild(currentListClone);
                 }
+                
+                currentListClone.appendChild(cardClone);
             }
 
             // Temporarily disable all document stylesheets to prevent html2canvas parsing errors

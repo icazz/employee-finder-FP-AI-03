@@ -123,7 +123,7 @@ def detect_genders_with_ai(
         candidates_list=candidates_list_str
     )
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [
@@ -205,7 +205,7 @@ def get_candidate_summaries(
 ) -> dict[str, dict]:
     """
     Generate summaries and matching status for candidates.
-    Uses Gemini API (gemini-1.5-flash) and falls back to local rules if not available.
+    Uses Gemini API (gemini-2.5-flash) and falls back to local rules if not available.
     """
     api_key = settings.gemini_api_key
     if not api_key or api_key == "your_gemini_api_key_here":
@@ -224,7 +224,7 @@ def get_candidate_summaries(
         candidates_list=candidates_list_str
     )
     
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [
@@ -311,7 +311,7 @@ Rules:
 }}
 """
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
     headers = {"Content-Type": "application/json"}
     payload = {
         "contents": [
