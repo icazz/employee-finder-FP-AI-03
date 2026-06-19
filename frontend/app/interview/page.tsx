@@ -33,6 +33,7 @@ interface Employee {
     invitationSent: boolean;
     createdAt: Date;
     score?: number;
+    filename?: string;
 }
 
 // ─── Helper Functions ──────────────────────────────────────────────────────────
@@ -280,12 +281,26 @@ export default function InterviewPage() {
     const [errorMessage, setErrorMessage] = useState("");
     const [emailModalEmployee, setEmailModalEmployee] = useState<Employee | null>(null);
 
-    // Load candidates from interviewQueue in localStorage (from Results page)
+    // Load candidates from interviewEmployees (persisted) and interviewQueue (temporary from Results page)
     useEffect(() => {
         try {
-            const stored = localStorage.getItem("interviewQueue");
-            if (stored) {
-                const queue = JSON.parse(stored) as Array<{
+            // 1. Load already saved candidates
+            const savedEmployeesStr = localStorage.getItem("interviewEmployees");
+            let currentEmployees: Employee[] = [];
+            if (savedEmployeesStr) {
+                currentEmployees = JSON.parse(savedEmployeesStr).map((emp: any) => ({
+                    ...emp,
+                    createdAt: emp.createdAt ? new Date(emp.createdAt) : new Date(),
+                }));
+            }
+
+            // 2. Load temp queue from Results page
+            const queueStr = localStorage.getItem("interviewQueue");
+            let merged = [...currentEmployees];
+            let addedCount = 0;
+
+            if (queueStr) {
+                const queue = JSON.parse(queueStr) as Array<{
                     name: string;
                     email?: string;
                     score?: number;
@@ -293,31 +308,49 @@ export default function InterviewPage() {
                 }>;
 
                 if (queue.length > 0) {
-                    const newEmployees: Employee[] = queue.map((item) => {
-                        const id = generateId();
-                        return {
-                            id,
-                            name: item.name || item.filename || "Kandidat",
-                            email: item.email || "",
-                            password: generatePassword(),
-                            link: generateLink(id),
-                            sessionStarted: false,
-                            invitationSent: false,
-                            createdAt: new Date(),
-                            score: item.score,
-                        };
+                    const newEmployees: Employee[] = [];
+                    queue.forEach((item) => {
+                        // Deduplicate: check if already exists by name or filename
+                        const isDuplicate = currentEmployees.some(
+                            (emp) => emp.name === (item.name || item.filename) ||
+                                     (item.filename && emp.filename === item.filename)
+                        );
+                        if (!isDuplicate) {
+                            const id = generateId();
+                            newEmployees.push({
+                                id,
+                                name: item.name || item.filename || "Kandidat",
+                                email: item.email || "",
+                                password: generatePassword(),
+                                link: generateLink(id),
+                                sessionStarted: false,
+                                invitationSent: false,
+                                createdAt: new Date(),
+                                score: item.score,
+                                filename: item.filename,
+                            });
+                        }
                     });
-                    setEmployees((prev) => [...newEmployees, ...prev]);
-                    setStatusMessage(
-                        `${queue.length} kandidat lolos seleksi berkas berhasil dimuat!`
-                    );
-                    setTimeout(() => setStatusMessage(""), 5000);
-                    // Clear queue after loading
+
+                    if (newEmployees.length > 0) {
+                        merged = [...newEmployees, ...currentEmployees];
+                        addedCount = newEmployees.length;
+                    }
                     localStorage.removeItem("interviewQueue");
                 }
             }
-        } catch {
-            // Silently fail if localStorage is not available
+
+            setEmployees(merged);
+            localStorage.setItem("interviewEmployees", JSON.stringify(merged));
+
+            if (addedCount > 0) {
+                setStatusMessage(
+                    `${addedCount} kandidat lolos seleksi berkas berhasil dimuat!`
+                );
+                setTimeout(() => setStatusMessage(""), 5000);
+            }
+        } catch (e) {
+            console.error("Error loading interview candidates:", e);
         }
     }, []);
 
@@ -364,7 +397,11 @@ export default function InterviewPage() {
                 createdAt: new Date(),
             };
 
-            setEmployees((prev) => [newEmployee, ...prev]);
+            setEmployees((prev) => {
+                const updated = [newEmployee, ...prev];
+                localStorage.setItem("interviewEmployees", JSON.stringify(updated));
+                return updated;
+            });
             setStatusMessage(
                 `Kandidat "${newEmployee.name}" berhasil ditambahkan! ${email ? `Email: ${email}` : "Email belum terdeteksi."}`
             );
@@ -383,11 +420,13 @@ export default function InterviewPage() {
     };
 
     const handleStartSession = (id: string) => {
-        setEmployees((prev) =>
-            prev.map((emp) =>
+        setEmployees((prev) => {
+            const updated = prev.map((emp) =>
                 emp.id === id ? { ...emp, sessionStarted: true } : emp
-            )
-        );
+            );
+            localStorage.setItem("interviewEmployees", JSON.stringify(updated));
+            return updated;
+        });
         setStatusMessage("Sesi interview dimulai!");
         setTimeout(() => setStatusMessage(""), 2000);
     };
@@ -397,11 +436,13 @@ export default function InterviewPage() {
     };
 
     const handleEmailSent = (employeeId: string) => {
-        setEmployees((prev) =>
-            prev.map((emp) =>
+        setEmployees((prev) => {
+            const updated = prev.map((emp) =>
                 emp.id === employeeId ? { ...emp, invitationSent: true } : emp
-            )
-        );
+            );
+            localStorage.setItem("interviewEmployees", JSON.stringify(updated));
+            return updated;
+        });
     };
 
     const handleCopyLink = (text: string, copyId: string) => {
@@ -411,17 +452,23 @@ export default function InterviewPage() {
     };
 
     const handleDeleteEmployee = (id: string) => {
-        setEmployees((prev) => prev.filter((emp) => emp.id !== id));
+        setEmployees((prev) => {
+            const updated = prev.filter((emp) => emp.id !== id);
+            localStorage.setItem("interviewEmployees", JSON.stringify(updated));
+            return updated;
+        });
         setStatusMessage("Kandidat dihapus");
         setTimeout(() => setStatusMessage(""), 2000);
     };
 
     const handleEmailChange = (id: string, newEmail: string) => {
-        setEmployees((prev) =>
-            prev.map((emp) =>
+        setEmployees((prev) => {
+            const updated = prev.map((emp) =>
                 emp.id === id ? { ...emp, email: newEmail } : emp
-            )
-        );
+            );
+            localStorage.setItem("interviewEmployees", JSON.stringify(updated));
+            return updated;
+        });
     };
 
     return (
@@ -605,7 +652,7 @@ export default function InterviewPage() {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                             {/* Email */}
                                             <div>
                                                 <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
@@ -623,75 +670,6 @@ export default function InterviewPage() {
                                                     placeholder="email@gmail.com"
                                                     className="w-full bg-gray-50 px-3 py-2 rounded-lg text-sm text-gray-800 border border-gray-200 focus:ring-2 focus:ring-[#81A6C6] focus:border-transparent outline-none transition"
                                                 />
-                                            </div>
-
-                                            {/* Password */}
-                                            <div>
-                                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
-                                                    Password
-                                                </label>
-                                                <div className="flex items-center gap-2">
-                                                    <code className="flex-1 bg-gray-50 px-3 py-2 rounded-lg text-sm font-mono text-gray-800 border border-gray-200">
-                                                        {employee.password}
-                                                    </code>
-                                                    <button
-                                                        onClick={() =>
-                                                            handleCopyLink(
-                                                                employee.password,
-                                                                `pwd-${employee.id}`
-                                                            )
-                                                        }
-                                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                                        title="Salin password"
-                                                    >
-                                                        {copiedId === `pwd-${employee.id}` ? (
-                                                            <CheckCircle
-                                                                size={16}
-                                                                className="text-emerald-500"
-                                                            />
-                                                        ) : (
-                                                            <Copy
-                                                                size={16}
-                                                                className="text-[#81A6C6]"
-                                                            />
-                                                        )}
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Link */}
-                                            <div>
-                                                <label className="block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wider">
-                                                    Link Interview
-                                                </label>
-                                                <div className="flex items-center gap-2">
-                                                    <code className="flex-1 bg-gray-50 px-3 py-2 rounded-lg text-sm font-mono text-gray-800 truncate border border-gray-200">
-                                                        {employee.link}
-                                                    </code>
-                                                    <button
-                                                        onClick={() =>
-                                                            handleCopyLink(
-                                                                employee.link,
-                                                                `link-${employee.id}`
-                                                            )
-                                                        }
-                                                        className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                                        title="Salin link"
-                                                    >
-                                                        {copiedId ===
-                                                        `link-${employee.id}` ? (
-                                                            <CheckCircle
-                                                                size={16}
-                                                                className="text-emerald-500"
-                                                            />
-                                                        ) : (
-                                                            <Copy
-                                                                size={16}
-                                                                className="text-[#81A6C6]"
-                                                            />
-                                                        )}
-                                                    </button>
-                                                </div>
                                             </div>
 
                                             {/* Status */}
@@ -741,21 +719,6 @@ export default function InterviewPage() {
                                                     Kirim ke Gmail
                                                 </>
                                             )}
-                                        </button>
-
-                                        <button
-                                            onClick={() =>
-                                                handleStartSession(employee.id)
-                                            }
-                                            disabled={employee.sessionStarted}
-                                            className={`w-fit px-6 py-3 rounded-xl shadow-md hover:scale-105 transition duration-300 font-semibold flex items-center gap-2 text-sm ${
-                                                employee.sessionStarted
-                                                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                                    : "bg-emerald-500 text-white"
-                                            }`}
-                                        >
-                                            <Play size={16} />
-                                            Mulai Sesi
                                         </button>
 
                                         <button

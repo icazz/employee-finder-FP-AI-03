@@ -340,3 +340,112 @@ Rules:
         logger.warning("Gemini candidate name extraction failed: %s. Using filename fallback.", exc)
         
     return _clean_filename(filename)
+
+
+_COMMON_WORDS = {
+    # Indonesian common and recruitment words
+    "dan", "yang", "untuk", "dengan", "saya", "kami", "kita", "kamu", "dia", "mereka",
+    "adalah", "sebagai", "dari", "di", "ke", "ini", "itu", "atau", "bisa", "dapat",
+    "ada", "tidak", "bukan", "hanya", "sangat", "lebih", "telah", "sudah", "dalam",
+    "pada", "oleh", "secara", "karena", "jika", "mencari", "butuh", "lowongan",
+    "loker", "kerja", "posisi", "kandidat", "pelamar", "syarat", "kualifikasi",
+    "pengalaman", "kemampuan", "keahlian", "bidang", "minimal", "maksimal",
+    "pria", "wanita", "laki", "perempuan", "pendidikan", "jurusan", "lulusan",
+    "utama", "tugas", "tanggung", "jawab", "deskripsi", "pekerjaan", "perusahaan",
+    "bisnis", "industri", "sistem", "aplikasi", "data", "teknologi", "informasi",
+    "komunikasi", "tim", "collab", "kolaborasi", "mampu", "menguasai", "memiliki",
+    "mengembangkan", "membuat", "mengelola", "mengoperasikan", "magang", "seleksi",
+    # English common and recruitment words
+    "the", "and", "to", "of", "a", "in", "for", "is", "on", "that", "by", "this",
+    "with", "i", "you", "it", "not", "or", "be", "are", "from", "at", "as", "your",
+    "we", "us", "our", "an", "will", "can", "but", "more", "has", "have", "had",
+    "job", "description", "requirements", "qualification", "experience", "skills",
+    "responsibilities", "candidate", "role", "apply", "cv", "resume", "spg", "spb",
+    "sales", "engineer", "developer", "designer", "staff", "manager", "admin",
+    "hiring", "recruit", "recruitment", "looking", "search", "seek", "position",
+    "full", "time", "part", "intern", "internship", "graduate", "degree", "education",
+    "major", "business", "company", "team", "work", "develop", "manage", "lead"
+}
+
+
+def validate_job_desc_with_ai(job_desc: str) -> tuple[bool, str]:
+    """
+    Validate if the Job Description text is coherent and has context.
+    Returns:
+        - is_valid: bool
+        - message: str (error message or explanation)
+    """
+    cleaned_jd = job_desc.strip()
+    if not cleaned_jd:
+        return False, "Job description cannot be empty."
+
+    # Pre-parse words for local checks
+    words = [w.lower().strip(".,;:!?()\"'-") for w in cleaned_jd.split()]
+    words = [w for w in words if w]
+    
+    # 1. Length constraint
+    if len(cleaned_jd) < 20 or len(words) < 4:
+        return False, "Masukkan job description yang benar (minimal 20 karakter dan 4 kata)."
+
+    api_key = settings.gemini_api_key
+    if not api_key or api_key == "your_gemini_api_key_here":
+        # Fallback local heuristic check
+        # Count matching common/recruitment words
+        valid_word_count = sum(1 for w in words if w in _COMMON_WORDS)
+        
+        # Calculate ratio of recognized words
+        if len(words) >= 4:
+            common_ratio = valid_word_count / len(words)
+            if common_ratio < 0.15:
+                return False, "Masukkan job description yang benar."
+        return True, ""
+
+    # Call Gemini to validate Job Description quality/context
+    prompt = f"""Analyze the following text and determine if it is a coherent job description, kriteria pekerjaan, lowongan kerja, or related recruitment text in any language.
+Gibberish, contextless sentences, random strings of words (like "saya idnej aoispc cjadnco nsdoinci"), or text that makes no sense as a job post or candidate requirements should be classified as invalid.
+
+Text:
+{cleaned_jd}
+
+Return ONLY a valid JSON object matching the following structure:
+{{
+  "is_valid": true or false,
+  "reason": "Explanation in Indonesian why it is valid or invalid"
+}}
+"""
+
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    headers = {"Content-Type": "application/json"}
+    payload = {
+        "contents": [
+            {
+                "parts": [
+                    {"text": prompt}
+                ]
+            }
+        ],
+        "generationConfig": {
+            "responseMimeType": "application/json"
+        }
+    }
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(url, json=payload, headers=headers)
+            response.raise_for_status()
+            res_data = response.json()
+            raw_text = res_data["candidates"][0]["content"]["parts"][0]["text"].strip()
+            data = json.loads(raw_text)
+            is_valid = bool(data.get("is_valid", True))
+            reason = data.get("reason", "Masukkan job description yang benar.")
+            return is_valid, reason
+    except Exception as exc:
+        logger.warning("Gemini JD validation failed: %s. Using local fallback.", exc)
+        # Fallback to local check
+        valid_word_count = sum(1 for w in words if w in _COMMON_WORDS)
+        if len(words) >= 4:
+            common_ratio = valid_word_count / len(words)
+            if common_ratio < 0.15:
+                return False, "Masukkan job description yang benar."
+        return True, ""
+

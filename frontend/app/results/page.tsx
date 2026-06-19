@@ -234,7 +234,6 @@ export default function ResultsPage() {
             localStorage.setItem("interviewQueue", JSON.stringify(existing));
         }
         setInvitedCandidates((prev) => new Set([...prev, candidate.filename]));
-        router.push("/interview"); // Redirect to interview page
     };
 
 
@@ -654,12 +653,6 @@ export default function ResultsPage() {
 
                 {/* Download Buttons */}
                 <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-                    <button
-                        onClick={downloadCSV}
-                        className="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition font-medium shadow-md"
-                    >
-                        <Download size={20} /> Export CSV
-                    </button>
                     <button
                         onClick={downloadPDF}
                         disabled={isDownloadingPdf}

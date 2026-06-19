@@ -165,15 +165,12 @@ async def analyze_candidates(
     if not cleaned_jd:
         raise HTTPException(status_code=400, detail="job_desc cannot be empty.")
 
-    # Validate quality of Job Description to prevent invalid/gibberish input (e.g., "pp", "asdf")
-    words = cleaned_jd.split()
-    unique_chars = set(cleaned_jd.lower().replace(" ", ""))
-    has_letters = any(c.isalpha() for c in cleaned_jd)
-
-    if len(cleaned_jd) < 20 or len(words) < 4 or len(unique_chars) < 5 or not has_letters:
+    from app.ai.summary import validate_job_desc_with_ai  # noqa: PLC0415
+    is_valid, err_reason = validate_job_desc_with_ai(cleaned_jd)
+    if not is_valid:
         raise HTTPException(
             status_code=400,
-            detail="Masukkan job description yang benar (minimal 20 karakter dan 4 kata)."
+            detail="Masukkan job description yang benar."
         )
 
     if not uploads:
@@ -263,6 +260,17 @@ async def analyze_candidates(
         hybrid = calculated_hybrids[r.filename]
         c_summary = summaries.get(r.filename, {})
 
+        is_match = bool(c_summary.get("is_match", True))
+        reason = c_summary.get("reason", "")
+
+        # Fallback local heuristics: if Gemini fails, override is_match to False
+        # for candidates with very low keyword coverage (< 15.0%)
+        fallback_reason = "Kandidat memiliki kualifikasi yang cukup relevan dengan kualifikasi pekerjaan yang dicari."
+        if reason == fallback_reason:
+            if gap and gap.coverage_pct < 15.0:
+                is_match = False
+                reason = "Kandidat memiliki kecocokan kata kunci yang sangat rendah dengan kualifikasi pekerjaan yang dicari."
+
         hybrid_list.append(
             CandidateScore(
                 rank=0,  # will assign after sort
@@ -273,8 +281,8 @@ async def analyze_candidates(
                 hybrid_score=hybrid,
                 hybrid_score_pct=scores_pct[r.filename],
                 profile_summary=c_summary.get("profile_summary", ""),
-                is_match=c_summary.get("is_match", True),
-                reason=c_summary.get("reason", "")
+                is_match=is_match,
+                reason=reason
             )
         )
 
