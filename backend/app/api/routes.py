@@ -265,9 +265,13 @@ async def analyze_candidates(
 
         # Fallback local heuristics: if Gemini fails, override is_match to False
         # for candidates with very low keyword coverage (< 15.0%)
+        # Only apply this heuristic when the JD has enough meaningful keywords (>= 3),
+        # otherwise a short JD like "kami mencari spg yang cantik" would produce 0%
+        # coverage for all candidates and incorrectly mark them as NOT MATCH.
         fallback_reason = "Kandidat memiliki kualifikasi yang cukup relevan dengan kualifikasi pekerjaan yang dicari."
         if reason == fallback_reason:
-            if gap and gap.coverage_pct < 15.0:
+            jd_has_enough_keywords = gap and gap.total_keywords >= 3
+            if jd_has_enough_keywords and gap.coverage_pct < 15.0:
                 is_match = False
                 reason = "Kandidat memiliki kecocokan kata kunci yang sangat rendah dengan kualifikasi pekerjaan yang dicari."
 
