@@ -168,8 +168,19 @@ export default function UploadPage() {
             setErrorMessage("Please select at least one CV file first.");
             return;
         }
-        if (!jobDesc.trim()) {
+        const cleanJobDesc = jobDesc.trim();
+        if (!cleanJobDesc) {
             setErrorMessage("Please enter a Job Description first.");
+            return;
+        }
+
+        // Validate Job Description quality
+        const words = cleanJobDesc.split(/\s+/).filter(Boolean);
+        const uniqueChars = new Set(cleanJobDesc.toLowerCase().replace(/\s/g, ""));
+        const hasLetters = /[a-zA-Z]/.test(cleanJobDesc);
+
+        if (cleanJobDesc.length < 30 || words.length < 4 || uniqueChars.size < 5 || !hasLetters) {
+            setErrorMessage("Masukkan job description yang benar (minimal 30 karakter dan 4 kata).");
             return;
         }
 
@@ -179,7 +190,7 @@ export default function UploadPage() {
 
         try {
             const formData = new FormData();
-            formData.append("job_desc", jobDesc);
+            formData.append("job_desc", cleanJobDesc);
             files.forEach((file) => formData.append("uploads", file));
 
             const response = await fetch("/api/v1/analyze", {

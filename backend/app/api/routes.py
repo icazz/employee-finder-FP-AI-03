@@ -161,8 +161,20 @@ async def analyze_candidates(
     - **rankings**: Candidates sorted by Cosine Similarity score (highest first).
     - **keyword_gaps**: Per-candidate matched and missing JD keywords.
     """
-    if not job_desc.strip():
+    cleaned_jd = job_desc.strip()
+    if not cleaned_jd:
         raise HTTPException(status_code=400, detail="job_desc cannot be empty.")
+
+    # Validate quality of Job Description to prevent invalid/gibberish input (e.g., "pp", "asdf")
+    words = cleaned_jd.split()
+    unique_chars = set(cleaned_jd.lower().replace(" ", ""))
+    has_letters = any(c.isalpha() for c in cleaned_jd)
+
+    if len(cleaned_jd) < 30 or len(words) < 4 or len(unique_chars) < 5 or not has_letters:
+        raise HTTPException(
+            status_code=400,
+            detail="Masukkan job description yang benar (minimal 30 karakter dan 4 kata)."
+        )
 
     if not uploads:
         raise HTTPException(status_code=400, detail="No CV files were uploaded.")
