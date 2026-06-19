@@ -58,6 +58,9 @@ _STOPWORDS: frozenset[str] = frozenset(
     wasn't we we'd we'll we're we've were weren't what what's when when's where
     where's which while who who's whom why why's will with won't would wouldn't
     you you'd you'll you're you've your yours yourself yourselves
+    dan di ke dari dalam dengan untuk pada yang adalah bisa dapat memiliki mempunyai
+    yaitu atau sebagai akan telah sudah oleh serta bahwa ialah itu ini juga saya
+    kami mereka ia dia kita anda kamu secara dengan untuk
     """.split()
 )
 
@@ -66,7 +69,11 @@ _GENERIC_TOKENS: frozenset[str] = frozenset(
     ["experience", "ability", "knowledge", "understanding", "skill", "skills",
      "work", "working", "team", "years", "year", "good", "strong", "excellent",
      "required", "preferred", "plus", "must", "like", "using", "used", "use",
-     "etc", "eg", "ie", "also", "including", "include", "includes"]
+     "etc", "eg", "ie", "also", "including", "include", "includes",
+     "pengalaman", "kemampuan", "pengetahuan", "pemahaman", "keterampilan",
+     "kerja", "bekerja", "tim", "tahun", "baik", "kuat", "luar", "biasa",
+     "dibutuhkan", "diutamakan", "harus", "seperti", "menggunakan", "digunakan",
+     "dll", "dlsb", "memiliki", "mempunyai", "mencapai", "membuat"]
 )
 
 

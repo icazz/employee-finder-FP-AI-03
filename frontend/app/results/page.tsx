@@ -195,20 +195,15 @@ function RankingCard({ candidate, gap, onInvite, isInvited }: { candidate: Candi
                     {open && (
                         <div className="mt-4 space-y-3 border-t pt-4">
                             {gap.matched_keywords.length > 0 && (
-                                <div>
-                                    <p className="text-xs font-semibold text-emerald-700 mb-2">
-                                        ✅ Matched Keywords ({gap.matched_keywords.length}/{gap.total_keywords})
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {gap.matched_keywords.map((kw) => (
-                                            <span
-                                                key={kw}
-                                                className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full"
-                                            >
-                                                {kw}
-                                            </span>
-                                        ))}
-                                    </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {gap.matched_keywords.map((kw) => (
+                                        <span
+                                            key={kw}
+                                            className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full"
+                                        >
+                                            {kw}
+                                        </span>
+                                    ))}
                                 </div>
                             )}
                         </div>
