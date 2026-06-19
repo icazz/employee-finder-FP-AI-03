@@ -576,10 +576,9 @@ export default function ResultsPage() {
             <div className="min-h-screen bg-gradient-to-br from-[#F3E8DA] to-[#E8DED3] p-6">
                 <button
                     onClick={() => router.push("/")}
-                    className="inline-flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition font-semibold group bg-white/40 hover:bg-white/70 px-4 py-2 rounded-xl border border-white/50 shadow-sm mb-6"
+                    className="mb-6 flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition"
                 >
-                    <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
-                    <span>Kembali ke Beranda</span>
+                    <ArrowLeft size={20} /> Kembali ke Beranda
                 </button>
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex items-start gap-4">
                     <AlertCircle className="text-red-600 shrink-0 mt-1" size={24} />
@@ -598,10 +597,9 @@ export default function ResultsPage() {
                 {/* Header */}
                 <button
                     onClick={() => router.push("/")}
-                    className="inline-flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition font-semibold group bg-white/40 hover:bg-white/70 px-4 py-2 rounded-xl border border-white/50 shadow-sm mb-6"
+                    className="mb-6 flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition"
                 >
-                    <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
-                    <span>Kembali ke Beranda</span>
+                    <ArrowLeft size={20} /> Kembali ke Beranda
                 </button>
 
                 <div className="space-y-8">

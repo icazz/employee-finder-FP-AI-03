@@ -221,10 +221,9 @@ export default function UploadPage() {
             <div className="max-w-5xl mx-auto mb-6">
                 <button
                     onClick={() => router.push("/")}
-                    className="inline-flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition font-semibold group bg-white/40 hover:bg-white/70 px-4 py-2 rounded-xl border border-white/50 shadow-sm"
+                    className="flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition"
                 >
-                    <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
-                    <span>Kembali ke Beranda</span>
+                    <ArrowLeft size={20} /> Kembali ke Beranda
                 </button>
             </div>
 
