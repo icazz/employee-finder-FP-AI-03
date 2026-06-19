@@ -99,11 +99,6 @@ function RankingCard({ candidate, gap, onInvite, isInvited }: { candidate: Candi
                                     </span>
                                 )}
                             </div>
-                            {gap && (
-                                <p className="text-xs text-gray-600">
-                                    {gap.match_count}/{gap.total_keywords} keywords matched
-                                </p>
-                            )}
                         </div>
                     </div>
 
