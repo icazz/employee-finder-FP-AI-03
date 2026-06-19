@@ -13,6 +13,7 @@ import {
     Trash2,
     Search,
     Cpu,
+    ArrowLeft,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -215,6 +216,17 @@ export default function UploadPage() {
 
     return (
         <main className="bg-[linear-gradient(to_bottom,#F7F4EE,#AACDDC,#E8DED3,#AACDDC,#F7F4EE)] min-h-screen px-6 pt-28 pb-16">
+
+            {/* BACK BUTTON */}
+            <div className="max-w-5xl mx-auto mb-6">
+                <button
+                    onClick={() => router.push("/")}
+                    className="inline-flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition font-semibold group bg-white/40 hover:bg-white/70 px-4 py-2 rounded-xl border border-white/50 shadow-sm"
+                >
+                    <ArrowLeft size={16} className="transition-transform group-hover:-translate-x-1" />
+                    <span>Kembali ke Beranda</span>
+                </button>
+            </div>
 
             {/* TITLE */}
             <div className="text-center">
