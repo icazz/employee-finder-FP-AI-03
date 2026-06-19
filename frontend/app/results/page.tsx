@@ -575,10 +575,10 @@ export default function ResultsPage() {
         return (
             <div className="min-h-screen bg-gradient-to-br from-[#F3E8DA] to-[#E8DED3] p-6">
                 <button
-                    onClick={() => router.push("/")}
+                    onClick={() => router.push("/upload")}
                     className="mb-6 flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition"
                 >
-                    <ArrowLeft size={20} /> Kembali ke Beranda
+                    <ArrowLeft size={20} /> Kembali ke Upload CV
                 </button>
                 <div className="bg-red-50 border border-red-200 rounded-2xl p-6 flex items-start gap-4">
                     <AlertCircle className="text-red-600 shrink-0 mt-1" size={24} />
@@ -596,10 +596,10 @@ export default function ResultsPage() {
             <div className="max-w-4xl mx-auto">
                 {/* Header */}
                 <button
-                    onClick={() => router.push("/")}
+                    onClick={() => router.push("/upload")}
                     className="mb-6 flex items-center gap-2 text-[#5A5550] hover:text-[#81A6C6] transition"
                 >
-                    <ArrowLeft size={20} /> Kembali ke Beranda
+                    <ArrowLeft size={20} /> Kembali ke Upload CV
                 </button>
 
                 <div className="space-y-8">
