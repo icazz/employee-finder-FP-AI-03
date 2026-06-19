@@ -170,10 +170,10 @@ async def analyze_candidates(
     unique_chars = set(cleaned_jd.lower().replace(" ", ""))
     has_letters = any(c.isalpha() for c in cleaned_jd)
 
-    if len(cleaned_jd) < 30 or len(words) < 4 or len(unique_chars) < 5 or not has_letters:
+    if len(cleaned_jd) < 20 or len(words) < 4 or len(unique_chars) < 5 or not has_letters:
         raise HTTPException(
             status_code=400,
-            detail="Masukkan job description yang benar (minimal 30 karakter dan 4 kata)."
+            detail="Masukkan job description yang benar (minimal 20 karakter dan 4 kata)."
         )
 
     if not uploads:

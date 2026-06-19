@@ -179,8 +179,8 @@ export default function UploadPage() {
         const uniqueChars = new Set(cleanJobDesc.toLowerCase().replace(/\s/g, ""));
         const hasLetters = /[a-zA-Z]/.test(cleanJobDesc);
 
-        if (cleanJobDesc.length < 30 || words.length < 4 || uniqueChars.size < 5 || !hasLetters) {
-            setErrorMessage("Masukkan job description yang benar (minimal 30 karakter dan 4 kata).");
+        if (cleanJobDesc.length < 20 || words.length < 4 || uniqueChars.size < 5 || !hasLetters) {
+            setErrorMessage("Masukkan job description yang benar (minimal 20 karakter dan 4 kata).");
             return;
         }
 
