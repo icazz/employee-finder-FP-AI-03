@@ -417,8 +417,14 @@ export default function ResultsPage() {
                 containerProperties.forEach((prop) => {
                     try {
                         const kebabProp = prop.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase());
-                        const val = computed.getPropertyValue(kebabProp);
+                        let val = computed.getPropertyValue(kebabProp).trim();
                         if (val) {
+                            // Sanitize color values
+                            if (/oklch|oklab|lab|lch|hwb|color\(/i.test(val)) {
+                                if (kebabProp.includes("color")) {
+                                    val = "#374151"; // fallback dark gray text
+                                }
+                            }
                             page.style.setProperty(kebabProp, val);
                         }
                     } catch (e) { }
@@ -489,8 +495,24 @@ export default function ResultsPage() {
                 }
             }
 
-            // Temporarily remove all style/link elements from the DOM to empty document.styleSheets
-            // and prevent html2canvas parsing errors on Tailwind CSS v4 oklch/lab colors
+            // Temporarily mock document.styleSheets and document.adoptedStyleSheets to return empty arrays.
+            // This is a bulletproof way to prevent html2canvas from trying to parse any stylesheets,
+            // bypassing any potential Tailwind CSS v4 oklch/lab parsing errors.
+            const originalStyleSheets = Object.getOwnPropertyDescriptor(Document.prototype, "styleSheets");
+            Object.defineProperty(document, "styleSheets", {
+                get: () => [],
+                configurable: true
+            });
+
+            const originalAdoptedStyleSheets = Object.getOwnPropertyDescriptor(Document.prototype, "adoptedStyleSheets");
+            if (originalAdoptedStyleSheets) {
+                Object.defineProperty(document, "adoptedStyleSheets", {
+                    get: () => [],
+                    configurable: true
+                });
+            }
+
+            // Temporarily remove all style/link elements from the DOM as an extra layer of safety
             const detachedStyles: { element: Element; parent: ParentNode | null; nextSibling: ChildNode | null }[] = [];
             try {
                 const styleElements = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"));
@@ -565,6 +587,23 @@ export default function ResultsPage() {
                     });
                 } catch (e) {
                     console.warn("Failed to restore some stylesheets:", e);
+                }
+
+                // Restore document.styleSheets and document.adoptedStyleSheets properties
+                try {
+                    if (originalStyleSheets) {
+                        Object.defineProperty(document, "styleSheets", originalStyleSheets);
+                    } else {
+                        delete (document as any).styleSheets;
+                    }
+
+                    if (originalAdoptedStyleSheets) {
+                        Object.defineProperty(document, "adoptedStyleSheets", originalAdoptedStyleSheets);
+                    } else {
+                        delete (document as any).adoptedStyleSheets;
+                    }
+                } catch (e) {
+                    console.warn("Failed to restore document style properties:", e);
                 }
             }
         } catch (err) {
