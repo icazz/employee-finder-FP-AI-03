@@ -489,17 +489,21 @@ export default function ResultsPage() {
                 }
             }
 
-            // Temporarily disable all document stylesheets to prevent html2canvas parsing errors
-            // on modern CSS features (like Tailwind v4 oklch/lab colors)
-            const disabledSheets: { sheet: CSSStyleSheet; wasDisabled: boolean }[] = [];
+            // Temporarily remove all style/link elements from the DOM to empty document.styleSheets
+            // and prevent html2canvas parsing errors on Tailwind CSS v4 oklch/lab colors
+            const detachedStyles: { element: Element; parent: ParentNode | null; nextSibling: ChildNode | null }[] = [];
             try {
-                for (let i = 0; i < document.styleSheets.length; i++) {
-                    const sheet = document.styleSheets[i];
-                    disabledSheets.push({ sheet, wasDisabled: sheet.disabled });
-                    sheet.disabled = true;
-                }
+                const styleElements = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"));
+                styleElements.forEach((el) => {
+                    detachedStyles.push({
+                        element: el,
+                        parent: el.parentNode,
+                        nextSibling: el.nextSibling
+                    });
+                    el.parentNode?.removeChild(el);
+                });
             } catch (e) {
-                console.warn("Failed to temporarily disable some stylesheets:", e);
+                console.warn("Failed to temporarily detach some stylesheets:", e);
             }
 
             try {
@@ -552,13 +556,15 @@ export default function ResultsPage() {
                     tempContainer.parentNode.removeChild(tempContainer);
                 }
 
-                // Re-enable all stylesheets
+                // Restore all style/link elements in their original positions/order
                 try {
-                    disabledSheets.forEach(({ sheet, wasDisabled }) => {
-                        sheet.disabled = wasDisabled;
+                    detachedStyles.forEach(({ element, parent, nextSibling }) => {
+                        if (parent) {
+                            parent.insertBefore(element, nextSibling);
+                        }
                     });
                 } catch (e) {
-                    console.warn("Failed to re-enable some stylesheets:", e);
+                    console.warn("Failed to restore some stylesheets:", e);
                 }
             }
         } catch (err) {
