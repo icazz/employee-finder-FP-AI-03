@@ -38,6 +38,8 @@ class CandidateScore(BaseModel):
     profile_summary: str = ""
     is_match: bool = True
     reason: str = ""
+    # Extracted email from CV
+    email: str = ""
 
 
 class KeywordGap(BaseModel):
@@ -203,6 +205,17 @@ async def analyze_candidates(
                 detail=f"Could not parse '{filename}': {exc}",
             ) from exc
 
+    # Save CSV with extracted emails to session
+    from app.services.file_parser import build_csv  # noqa: PLC0415
+    global _csv_store
+    _csv_store = build_csv(files)
+
+    # Extract emails from parsed texts
+    from app.services.file_parser import _extract_email  # noqa: PLC0415
+    email_map: dict[str, str] = {}
+    for filename, text in candidates:
+        email_map[filename] = _extract_email(text)
+
     # --- Run AI analysis ---
     # Both calls share the same JD — embedder batches efficiently
     similarity_results: list[CandidateResult] = score_many(job_desc, candidates)
@@ -286,7 +299,8 @@ async def analyze_candidates(
                 hybrid_score_pct=scores_pct[r.filename],
                 profile_summary=c_summary.get("profile_summary", ""),
                 is_match=is_match,
-                reason=reason
+                reason=reason,
+                email=email_map.get(r.filename, ""),
             )
         )
 
@@ -319,6 +333,20 @@ async def analyze_candidates(
 @router.get("/health")
 async def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+class SendEmailRequest(BaseModel):
+    to_email: str
+    subject: str
+    content: str
+    sender_name: str = ""
+
+
+@router.post("/send-email")
+async def send_email(req: SendEmailRequest) -> dict:
+    from app.services.email_sender import send_gmail  # noqa: PLC0415
+    result = send_gmail(req.to_email, req.subject, req.content, req.sender_name)
+    return result
 
 
 class ExtractNameResponse(BaseModel):

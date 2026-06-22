@@ -1,5 +1,6 @@
 import csv
 import io
+
 import fitz
 from docx import Document
 
@@ -33,15 +34,37 @@ def _parse_file_to_text(file_bytes: bytes, filename: str) -> str:
         case _:
             raise ValueError(f"Unsupported file type: .{ext}")
 
+def _extract_email(text: str) -> str:
+    at_idx = text.find("@")
+    if at_idx == -1:
+        return ""
+
+    start = at_idx
+    while start > 0 and text[start - 1] != " ":
+        start -= 1
+
+    end = at_idx
+    while end < len(text) and text[end] != " ":
+        end += 1
+
+    candidate = text[start:end]
+
+    if "." not in candidate[candidate.index("@"):]:
+        return ""
+
+    return candidate
+
+
 def build_csv(files: list[tuple[str, bytes]]) -> io.StringIO:
     buffer = io.StringIO()
     writer = csv.writer(buffer, quoting=csv.QUOTE_ALL)
 
-    writer.writerow(["filename", "text"])
+    writer.writerow(["filename", "text", "email"])
 
     for filename, file_bytes in files:
         text = _parse_file_to_text(file_bytes, filename)
-        writer.writerow([filename, text])
+        email = _extract_email(text)
+        writer.writerow([filename, text, email])
 
     buffer.seek(0)
     return buffer

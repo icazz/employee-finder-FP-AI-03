@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     hf_api_key: str = Field(default="", alias="HF_API_KEY")
     use_local_embeddings: bool = Field(default=False, alias="USE_LOCAL_EMBEDDINGS")
     
+    # Email / SMTP Settings
+    smtp_host: str = Field(default="smtp.gmail.com", alias="SMTP_HOST")
+    smtp_port: int = Field(default=587, alias="SMTP_PORT")
+    smtp_user: str = Field(default="", alias="SMTP_USER")
+    smtp_password: str = Field(default="", alias="SMTP_PASSWORD")
+
     # File Processing Settings
     allowed_extensions: str | set[str] = Field(default={"pdf", "docx"}, alias="ALLOWED_EXTENSIONS")
     max_file_size_mb: int = Field(default=25, alias="MAX_FILE_SIZE_MB")
