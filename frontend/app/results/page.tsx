@@ -14,6 +14,10 @@ import {
     UserCheck,
     Mail,
     CheckCircle,
+    Send,
+    X,
+    Copy,
+    ExternalLink,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
@@ -29,6 +33,7 @@ interface CandidateScore {
     profile_summary?: string;
     is_match?: boolean;
     reason?: string;
+    email?: string;
 }
 
 interface KeywordGap {
@@ -77,7 +82,155 @@ function scoreBar(pct: number) {
     );
 }
 
-function RankingCard({ candidate, gap, onInvite, isInvited }: { candidate: CandidateScore; gap?: KeywordGap; onInvite?: (candidate: CandidateScore) => void; isInvited?: boolean }) {
+function EmailModal({
+    candidate,
+    subject,
+    body,
+    senderName,
+    onClose,
+}: {
+    candidate: CandidateScore;
+    subject: string;
+    body: string;
+    senderName: string;
+    onClose: () => void;
+}) {
+    const [isSending, setIsSending] = useState(false);
+    const [sendStatus, setSendStatus] = useState<"idle" | "success" | "simulated" | "error">("idle");
+    const [errorMsg, setErrorMsg] = useState("");
+
+    const handleSend = async () => {
+        if (!candidate.email) {
+            setErrorMsg("Tidak ada email yang terekstrak dari CV ini.");
+            return;
+        }
+
+        setIsSending(true);
+        setErrorMsg("");
+        setSendStatus("idle");
+
+        try {
+            const response = await fetch("/api/v1/send-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    to_email: candidate.email,
+                    subject: subject,
+                    content: body,
+                    sender_name: senderName,
+                }),
+            });
+
+            const data = await response.json();
+
+            if (data.simulated) {
+                const fullEmail = `To: ${candidate.email}\nSubject: ${subject}\n\n${body}`;
+                try {
+                    await navigator.clipboard.writeText(fullEmail);
+                } catch {
+                    // clipboard not available
+                }
+                setSendStatus("simulated");
+            } else {
+                setSendStatus("success");
+            }
+        } catch {
+            const fullEmail = `To: ${candidate.email}\nSubject: ${subject}\n\n${body}`;
+            try {
+                await navigator.clipboard.writeText(fullEmail);
+            } catch {
+                // clipboard not available
+            }
+            setSendStatus("simulated");
+        } finally {
+            setIsSending(false);
+        }
+    };
+
+    const handleOpenGmail = () => {
+        const gmailBody = body.replace(/\n/g, "%0D%0A");
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(candidate.email || "")}&su=${encodeURIComponent(subject)}&body=${gmailBody}`;
+        window.open(gmailUrl, "_blank");
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-gray-200 overflow-hidden">
+                <div className="bg-gradient-to-r from-[#81A6C6] to-[#6c93b5] px-6 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Mail size={20} className="text-white" />
+                        <div>
+                            <h3 className="text-lg font-bold text-white">Kirim Email</h3>
+                            <p className="text-white/80 text-xs">Ke {candidate.email || "(tidak ada email)"}</p>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition text-white">
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-4">
+                    {sendStatus === "success" && (
+                        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-emerald-800 text-sm">
+                            <CheckCircle size={18} />
+                            <span>Email berhasil dikirim ke <strong>{candidate.email}</strong>!</span>
+                        </div>
+                    )}
+                    {sendStatus === "simulated" && (
+                        <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-amber-800 text-sm">
+                            <AlertCircle size={18} className="shrink-0 mt-0.5" />
+                            <div>
+                                <strong>Mode Simulasi:</strong> SMTP belum dikonfigurasi. Email telah disalin ke clipboard.
+                            </div>
+                        </div>
+                    )}
+                    {errorMsg && (
+                        <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg p-3 text-red-800 text-sm">
+                            <AlertCircle size={18} />
+                            <span>{errorMsg}</span>
+                        </div>
+                    )}
+
+                    <div className="bg-gray-50 rounded-lg p-4 space-y-2 text-sm">
+                        <div>
+                            <span className="font-semibold text-gray-600">Tujuan:</span>
+                            <p className="text-gray-800">{candidate.email || "-"}</p>
+                        </div>
+                        <div>
+                            <span className="font-semibold text-gray-600">Kandidat:</span>
+                            <p className="text-gray-800">{candidate.filename}</p>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleSend}
+                            disabled={isSending || !candidate.email}
+                            className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-[#81A6C6] text-white rounded-lg hover:bg-[#6c93b5] transition font-semibold shadow-md disabled:opacity-50"
+                        >
+                            {isSending ? (
+                                <Loader2 className="animate-spin" size={18} />
+                            ) : (
+                                <Send size={18} />
+                            )}
+                            {isSending ? "Mengirim..." : "Kirim Email"}
+                        </button>
+                        <button
+                            onClick={handleOpenGmail}
+                            className="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition font-semibold shadow-sm"
+                        >
+                            <ExternalLink size={18} />
+                            Buka Gmail
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function RankingCard({ candidate, gap, onInvite, isInvited, onSendEmail }: { candidate: CandidateScore; gap?: KeywordGap; onInvite?: (candidate: CandidateScore) => void; isInvited?: boolean; onSendEmail?: (candidate: CandidateScore) => void }) {
     const [open, setOpen] = useState(false);
 
     return (
@@ -136,28 +289,39 @@ function RankingCard({ candidate, gap, onInvite, isInvited }: { candidate: Candi
                     <div className="text-4xl font-bold text-[#5A5550] mb-2">
                         {candidate.hybrid_score_pct}%
                     </div>
-                    {onInvite && (
-                        <button
-                            onClick={() => onInvite(candidate)}
-                            disabled={isInvited}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition shadow-md hover:scale-[1.02] ${isInvited
-                                ? "bg-emerald-100 text-emerald-700 cursor-default"
-                                : "bg-[#81A6C6] text-white hover:bg-[#6c93b5]"
-                                }`}
-                        >
-                            {isInvited ? (
-                                <>
-                                    <CheckCircle size={16} />
-                                    Berkas Diloloskan
-                                </>
-                            ) : (
-                                <>
-                                    <Mail size={16} />
-                                    Loloskan
-                                </>
-                            )}
-                        </button>
-                    )}
+                    <div className="flex flex-col gap-2">
+                        {onSendEmail && candidate.email && (
+                            <button
+                                onClick={() => onSendEmail(candidate)}
+                                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition shadow-md hover:scale-[1.02] bg-emerald-500 text-white hover:bg-emerald-600"
+                            >
+                                <Send size={16} />
+                                Kirim
+                            </button>
+                        )}
+                        {onInvite && (
+                            <button
+                                onClick={() => onInvite(candidate)}
+                                disabled={isInvited}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition shadow-md hover:scale-[1.02] ${isInvited
+                                    ? "bg-emerald-100 text-emerald-700 cursor-default"
+                                    : "bg-[#81A6C6] text-white hover:bg-[#6c93b5]"
+                                    }`}
+                            >
+                                {isInvited ? (
+                                    <>
+                                        <CheckCircle size={16} />
+                                        Berkas Diloloskan
+                                    </>
+                                ) : (
+                                    <>
+                                        <Mail size={16} />
+                                        Loloskan
+                                    </>
+                                )}
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -219,6 +383,16 @@ export default function ResultsPage() {
     const [showPreview, setShowPreview] = useState(false);
     const [pdfError, setPdfError] = useState("");
     const [invitedCandidates, setInvitedCandidates] = useState<Set<string>>(new Set());
+    const [emailCandidate, setEmailCandidate] = useState<CandidateScore | null>(null);
+    const [senderName, setSenderName] = useState("CVDrop-AI");
+    const [emailSubject, setEmailSubject] = useState("Undangan Interview - Employee Finder");
+    const [emailBody, setEmailBody] = useState(
+        "Yth. Kandidat,\n\nSelamat! Berdasarkan hasil analisis CV, Anda dinyatakan lolos ke tahap selanjutnya.\n\nSalam,\nTim Rekrutmen"
+    );
+
+    const handleSendEmail = (candidate: CandidateScore) => {
+        setEmailCandidate(candidate);
+    };
 
     const handleInviteCandidate = (candidate: CandidateScore) => {
         // Save to localStorage interviewQueue
@@ -677,6 +851,44 @@ export default function ResultsPage() {
                         </div>
                     )}
 
+                    {/* Email Composer */}
+                    <div className="bg-white rounded-2xl p-6 shadow-md border-l-4 border-emerald-500">
+                        <div className="flex items-center gap-2 mb-4">
+                            <Mail size={20} className="text-emerald-600" />
+                            <h2 className="text-lg font-semibold text-[#5A5550]">Komposer Email</h2>
+                        </div>
+                        <div className="space-y-3">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Nama Pengirim</label>
+                                <input
+                                    type="text"
+                                    value={senderName}
+                                    onChange={(e) => setSenderName(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                    placeholder="CVDrop-AI"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Subjek Email</label>
+                                <input
+                                    type="text"
+                                    value={emailSubject}
+                                    onChange={(e) => setEmailSubject(e.target.value)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-600 mb-1">Isi Email</label>
+                                <textarea
+                                    value={emailBody}
+                                    onChange={(e) => setEmailBody(e.target.value)}
+                                    rows={5}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 resize-y"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Rankings */}
                     <div className="space-y-4">
                         {analysisData.rankings.map((candidate) => {
@@ -690,6 +902,7 @@ export default function ResultsPage() {
                                     gap={gap}
                                     onInvite={handleInviteCandidate}
                                     isInvited={invitedCandidates.has(candidate.filename)}
+                                    onSendEmail={handleSendEmail}
                                 />
                             );
                         })}
@@ -816,6 +1029,16 @@ export default function ResultsPage() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {emailCandidate && (
+                <EmailModal
+                    candidate={emailCandidate}
+                    subject={emailSubject}
+                    body={emailBody}
+                    senderName={senderName}
+                    onClose={() => setEmailCandidate(null)}
+                />
             )}
         </div>
     );
