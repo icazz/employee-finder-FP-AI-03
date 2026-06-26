@@ -1,12 +1,9 @@
-# Exclude backend virtual envs and python caches
-backend/venv
-backend/.venv
 **/.git
 **/.github
 **/.idea
 **/.vscode
 
-# Exclude python cache files
+# Exclude python cache files (kept for safety)
 **/__pycache__
 **/*.pyc
 **/*.pyo

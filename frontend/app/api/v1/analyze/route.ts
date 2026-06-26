@@ -19,23 +19,23 @@ interface CandidateScore {
   rank: number;
   filename: string;
   score: number;
-  scorePct: number;
-  keywordCoveragePct: number;
-  hybridScore: number;
-  hybridScorePct: number;
-  profileSummary?: string;
-  isMatch?: boolean;
+  score_pct: number;
+  keyword_coverage_pct: number;
+  hybrid_score: number;
+  hybrid_score_pct: number;
+  profile_summary?: string;
+  is_match?: boolean;
   reason?: string;
   email?: string;
 }
 
 interface KeywordGap {
   filename: string;
-  matchedKeywords: string[];
-  missingKeywords: string[];
-  matchCount: number;
-  totalKeywords: number;
-  coveragePct: number;
+  matched_keywords: string[];
+  missing_keywords: string[];
+  match_count: number;
+  total_keywords: number;
+  coverage_pct: number;
 }
 
 function validateExt(filename: string): boolean {
@@ -183,27 +183,27 @@ export async function POST(request: Request) {
         rank: 0,
         filename: r.filename,
         score: r.score,
-        scorePct: Math.round(r.score * 1000) / 10,
-        keywordCoveragePct: gap ? gap.coveragePct : 0,
-        hybridScore: hybrid,
-        hybridScorePct: sPct,
-        profileSummary: cSummary.profileSummary || "",
-        isMatch,
+        score_pct: Math.round(r.score * 1000) / 10,
+        keyword_coverage_pct: gap ? gap.coveragePct : 0,
+        hybrid_score: hybrid,
+        hybrid_score_pct: sPct,
+        profile_summary: cSummary.profileSummary || "",
+        is_match: isMatch,
         reason,
         email: parsed.find((p) => p.filename === r.filename)?.email || "",
       });
     }
 
-    hybridList.sort((a, b) => b.hybridScore - a.hybridScore);
+    hybridList.sort((a, b) => b.hybrid_score - a.hybrid_score);
     hybridList.forEach((c, i) => (c.rank = i + 1));
 
     const gaps = keywordGaps.map((g) => ({
       filename: g.filename,
-      matchedKeywords: g.matchedKeywords,
-      missingKeywords: g.missingKeywords,
-      matchCount: g.matchCount,
-      totalKeywords: g.totalKeywords,
-      coveragePct: g.coveragePct,
+      matched_keywords: g.matchedKeywords,
+      missing_keywords: g.missingKeywords,
+      match_count: g.matchCount,
+      total_keywords: g.totalKeywords,
+      coverage_pct: g.coveragePct,
     }));
 
     return Response.json({
